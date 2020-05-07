@@ -371,6 +371,7 @@ export default {
 			this.$store.reprocess = 0
 			this.selectedCaseStudy = data['runName']
 			this.$store.comparisonMode = this.comparisonMode
+			this.$store.fontSize = 14
 		},
 
 		setOtherData() {
@@ -415,17 +416,14 @@ export default {
 				data = this.$store.maxExcTime
 			}
 
-			console.log(this.$store.selectedDatasets)
 			for (let dataset of this.$store.selectedDatasets) {
 				if (current_max_time < data[dataset]) {
 					current_max_time = data[dataset]
 					max_dataset = dataset
 				}
 			}
-			console.log(this.$store.resetTargetDataset)
 
 			if (this.firstRender || this.$store.resetTargetDataset) {
-				console.log("here")
 				this.$store.selectedTargetDataset = max_dataset
 				this.selectedTargetDataset = max_dataset
 				this.firstRender = false

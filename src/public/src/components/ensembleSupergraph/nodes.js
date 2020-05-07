@@ -66,9 +66,6 @@ export default {
             else if (this.$store.selectedCompareMode == 'Mean Differences') {
                 let max_diff = Math.max(Math.abs(this.mean_diff_min), Math.abs(this.mean_diff_max))
 
-                // this.$store.meanDiffColor.setColorScale(-1 * max_diff, max_diff, this.$store.selectedDistributionColorMap, this.$store.selectedColorPoint)
-                // this.$parent.$refs.EnsembleColorMap.updateWithMinMax('meanDiff', -1 * max_diff, max_diff)
-
                 this.$store.meanDiffColor.setColorScale(this.mean_diff_min, this.mean_diff_max, this.$store.selectedDistributionColorMap, this.$store.selectedColorPoint)
                 this.$parent.$refs.EnsembleColorMap.updateWithMinMax('meanDiff', this.mean_diff_min, this.mean_diff_max)
 
@@ -94,23 +91,9 @@ export default {
     },
     mounted() {
         this.id = 'ensemble-nodes'
-
-        let self = this
-        EventHandler.$on('update_diff_node_alignment', function () {
-            self.clearQuantileLines()
-        })
     },
 
     methods: {
-        formatRunCounts(val) {
-            if (val == 1) {
-                return val + ' run';
-            }
-            else {
-                return val + ' runs';
-            }
-        },
-
         init(graph) {
             this.graph = graph
             this.nodes = d3.select('#' + this.id)
@@ -149,7 +132,6 @@ export default {
         },
 
         visualize() {
-            this.graph.nodes = this.filterNodes(this.graph.nodes)
             this.setClientIds()
             this.meanColorScale()
             this.meanGradients()
@@ -177,11 +159,15 @@ export default {
 
 
             this.meanRectangle()
-
-            this.path()
+            this.ensemblePath()
+        
             this.text()
             if (this.$store.showTarget) {
                 this.drawTargetLine()
+
+                if(this.$store.comparisonMode == false){
+                    this.targetPath()
+                }
             }
 
             this.$refs.ToolTip.init(this.$parent.id)
@@ -195,18 +181,6 @@ export default {
                 node.client_idx = idx
                 idx += 1
             }
-        },
-
-        filterNodes() {
-            let ret = []
-            let nodes = this.graph.nodes
-
-            for (let node of nodes) {
-                if (this.ensemble_module_data[node.module] != undefined) {
-                    ret.push(node)
-                }
-            }
-            return ret
         },
 
         meanColorScale() {
@@ -528,7 +502,6 @@ export default {
             let method = 'hist'
             for (let i = 0; i < data.length; i += 1) {
                 let d = data[i]
-                console.log(d)
                 var defs = d3.select('#ensemble-supergraph-overview')
                     .append("defs");
 
@@ -566,13 +539,6 @@ export default {
                         })
                 }
             }
-        },
-
-        normalize(min, max) {
-            var delta = max - min;
-            return function (val) {
-                return (val - min) / delta;
-            };
         },
 
         meanDiffRectangle(diff) {
@@ -661,7 +627,7 @@ export default {
                     this.renderTargetLine(data, node_data, node_name)
                 }
                 else {
-
+                    continue
                 }
             }
         },
@@ -778,7 +744,7 @@ export default {
 
                     }
                     else if (textGuideType == 'summary') {
-                        leftSideText = this.formatRunCounts(vals[idx])
+                        leftSideText = utils.formatRunCounts(vals[idx])
                         this.guidesG
                             .append('text')
                             .attrs({
@@ -792,8 +758,6 @@ export default {
                             .style('font-size', fontSize + 'px')
                             .text(leftSideText)
                     }
-
-
 
                     // For placing the runtime values.
                     if (idx != 0 && idx != grid.length - 1) {
@@ -844,7 +808,53 @@ export default {
             }
         },
 
-        path() {
+        targetPath(){
+            this.nodesSVG.append('path')
+            .attrs({
+                'class': 'target-path',
+                'd': (d) => {
+                    if (d.type == "intermediate") {
+                        return "m" + 0 + " " + 0
+                            + "h " + this.nodeWidth
+                            + "v " + (1) * d.targetHeight
+                            + "h " + (-1) * this.nodeWidth;
+                    }
+                }
+            })
+            .style('fill', (d) => {
+                if (d.type == "intermediate") {
+                    return this.$store.color.target
+                }
+            })
+            .style('opacity', (d) => {
+                return 0.6
+            })
+            .style('fill-opacity', (d) => {
+                if (d.type == "intermediate") {
+                    return 0.0;
+                }
+                else {
+                    return 0;
+                }
+            })
+            .style("stroke", function (d) {
+                if (d.type == "intermediate") {
+                    return this.intermediateColor
+                }
+            })
+            .style('stroke-opacity', '0.0');
+
+        this.nodes.selectAll('.target-path')
+            .data(this.graph.nodes)
+            .transition()
+            .duration(this.transitionDuration)
+            .delay(this.transitionDuration / 3)
+            .style('fill-opacity', (d) => {
+                return 1.0;
+            });
+        },
+
+        ensemblePath() {
             this.nodesSVG.append('path')
                 .attrs({
                     'class': 'ensemble-path',
@@ -894,72 +904,8 @@ export default {
                 .style('fill-opacity', (d) => {
                     return 1.0;
                 });
-            console.log(this.$store.comparisonMode)
-            if (this.$store.showTarget && this.$store.comparisonMode == false) {
-                this.nodesSVG.append('path')
-                    .attrs({
-                        'class': 'target-path',
-                        'd': (d) => {
-                            if (d.type == "intermediate") {
-                                return "m" + 0 + " " + 0
-                                    + "h " + this.nodeWidth
-                                    + "v " + (1) * d.targetHeight
-                                    + "h " + (-1) * this.nodeWidth;
-                            }
-                        }
-                    })
-                    .style('fill', (d) => {
-                        if (d.type == "intermediate") {
-                            return this.$store.color.target
-                        }
-                    })
-                    .style('opacity', (d) => {
-                        return 0.6
-                    })
-                    .style('fill-opacity', (d) => {
-                        if (d.type == "intermediate") {
-                            return 0.0;
-                        }
-                        else {
-                            return 0;
-                        }
-                    })
-                    .style("stroke", function (d) {
-                        if (d.type == "intermediate") {
-                            return this.intermediateColor
-                        }
-                    })
-                    .style('stroke-opacity', '0.0');
 
-                this.nodes.selectAll('.target-path')
-                    .data(this.graph.nodes)
-                    .transition()
-                    .duration(this.transitionDuration)
-                    .delay(this.transitionDuration / 3)
-                    .style('fill-opacity', (d) => {
-                        return 1.0;
-                    });
-            }
-        },
-
-        textSize(text) {
-            const container = d3.select('#' + this.$parent.id).append('svg');
-            container.append('text')
-                .attrs({
-                    x: -99999,
-                    y: -99999
-                })
-                .text((d) => text);
-            const size = container.node().getBBox();
-            container.remove();
-            return {
-                width: size.width,
-                height: size.height
-            };
-        },
-
-        trunc(str, n) {
-            return (str.length > n) ? str.substr(0, n - 1) + '...' : str;
+           
         },
 
         text() {
@@ -975,26 +921,6 @@ export default {
                 .text((d) => {
                     return '';
                 })
-                .on('mouseover', function (d) {
-                    // if (d.name[0] != 'intermediate') {
-                    //     view.toolTipList.attr('width', '400px')
-                    //         .attr('height', '150px');
-                    //     d3.select(this.parentNode).select('rect').style('stroke-width', '2');
-                    // }
-                })
-                .on('mouseout', function (d) {
-                    // view.toolTipList.attr('width', '0px')
-                    //     .attr('height', '0px');
-                    // if (d.name[0] != 'intermediate') {
-                    //     d3.select(this.parentNode).select('rect').style('stroke-width', '1');
-                    //     //                unFade();
-                    // }
-                    // view.toolTip.style('opacity', 1)
-                    //     .style('left', () => 0)
-                    //     .style('top', () => 0);
-                    // view.toolTipText.html('');
-                    // view.toolTipG.selectAll('*').remove();
-                });
 
             // Transition
             this.nodes.selectAll('text')
@@ -1006,24 +932,19 @@ export default {
                     return '#000'
                 })
                 .text((d) => {
-                    let node_name = ''
-                    if (d.id.split('_')[0] != "intermediate") {
+                    if (d.type != "intermediate") {
                         if (d.height < this.minHeightForText) {
                             return '';
                         }
 
-                        if (d.id.indexOf('=') > -1) {
-                            node_name = d.id.split('=')[1]
-                        }
-                        else {
-                            node_name = d.id
+                        var textSize = utils.textSize(this.$parent.id, d.id)['width'];
+                        if (textSize < d.height) {
+                            return d.id;
                         }
 
-                        var textSize = this.textSize(node_name)['width'];
-                        if (textSize < d.height) {
-                            return node_name;
-                        }
-                        return this.trunc(node_name, Math.floor(d.height / 14));
+                        let characterCount = d.height/this.$store.fontSize
+
+                        return utils.truncNames(d.id, characterCount);
                     }
                 });
         },

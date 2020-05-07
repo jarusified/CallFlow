@@ -17,6 +17,15 @@ export function formatRuntimeWithUnits(val) {
     return ret
 }
 
+export function formatRunCounts(val) {
+    if (val == 1) {
+        return val + ' run';
+    }
+    else {
+        return val + ' runs';
+    }
+}
+
 export function formatRuntimeWithoutUnits(val) {
     let format = d3.format('.2')
     let ret = format(val)
