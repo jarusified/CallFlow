@@ -4,13 +4,15 @@ import ToolTip from './nodeTooltip'
 import EventHandler from '../EventHandler'
 import * as utils from '../utils'
 import MeanGradients from './nodes/meanGradients'
+import Guides from './nodes/guides'
 
 export default {
     template: tpl,
     name: 'EnsembleNodes',
     components: {
         ToolTip,
-        MeanGradients
+        MeanGradients,
+        Guides
     },
     data: () => ({
         currentNodeLevel: {},
@@ -133,30 +135,13 @@ export default {
         },
 
         visualize() {
-            this.nodesSVG = this.containerG.selectAll('.ensemble-callsite')
-                .data(this.graph.nodes)
-                .enter()
-                .append('g')
-                .attr('class', (d) => {
-                    return 'ensemble-callsite'
-                })
-                .attr('id', (d, i) => {
-                    return 'ensemble-callsite-' + d.client_idx
-                })
-                .attr('transform', (d) => {
-                    return `translate(${d.x},${d.y})`
-                })
-                .attr('opacity', 1)
-                .attr('transform', d => `translate(${d.x},${d.y + this.$parent.ySpacing})`)
-
             this.rectangle()
-
 
 
             this.$store.mode = 'mean-gradients'
 
             if (this.$store.mode == 'mean-gradients') {
-                this.$refs.MeanGradients.init(this.graph.nodes, this.nodesSVG)
+                this.$refs.MeanGradients.init(this.graph.nodes, this.containerG)
             }
             else if (this.$store.mode == 'mean') {
 
@@ -177,7 +162,7 @@ export default {
                     this.targetPath()
                 }
             }
-
+            this.$refs.Guides.init(this.graph.nodes, this.containerG)
             this.$refs.ToolTip.init(this.$parent.id)
         },
 
@@ -195,6 +180,23 @@ export default {
         },
 
         rectangle() {
+            this.nodesSVG = this.containerG.selectAll('.ensemble-callsite')
+                .data(this.graph.nodes)
+                .enter()
+                .append('g')
+                .attr('class', (d) => {
+                    return 'ensemble-callsite'
+                })
+                .attr('id', (d, i) => {
+                    return 'ensemble-callsite-' + d.client_idx
+                })
+                .attr('transform', (d) => {
+                    return `translate(${d.x},${d.y})`
+                })
+                .attr('opacity', 1)
+                .attr('transform', d => `translate(${d.x},${d.y + this.$parent.ySpacing})`)
+
+
             this.nodesSVG.append('rect')
                 .attrs({
                     'id': (d) => { return d.id + ' callsite-rect' + d.client_idx },
@@ -221,7 +223,7 @@ export default {
 
         click(d) {
             if (!this.drawGuidesMap[d.id]) {
-                this.drawGuides(d, 'permanent')
+                this.$refs.Guides.visualize(d, 'permanent')
                 this.drawGuidesMap[d.id] = true
             }
             d3.selectAll('.ensemble-edge')
@@ -297,7 +299,8 @@ export default {
         },
 
         targetPath() {
-            this.nodesSVG.append('path')
+            this.nodesSVG
+                .append('path')
                 .attrs({
                     'class': 'target-path',
                     'd': (d) => {
@@ -332,7 +335,8 @@ export default {
                 })
                 .style('stroke-opacity', '0.0');
 
-            this.nodes.selectAll('.target-path')
+            this.nodes
+                .selectAll('.target-path')
                 .data(this.graph.nodes)
                 .transition()
                 .duration(this.transitionDuration)
@@ -343,7 +347,8 @@ export default {
         },
 
         ensemblePath() {
-            this.nodesSVG.append('path')
+            this.nodesSVG
+                .append('path')
                 .attrs({
                     'class': 'ensemble-path',
                     'd': (d) => {
@@ -394,26 +399,15 @@ export default {
         },
 
         text() {
-            this.nodesSVG.selectAll('.ensemble-callsite')
+            this.nodesSVG
                 .append('text')
+                .data(this.graph.nodes)
                 .attrs({
                     'dy': '0.35em',
                     'transform': 'rotate(90)',
                     'x': '5',
-                    'y': '-11.5'
+                    'y': '-10'
                 })
-                .style('opacity', 1)
-                .style('font-size', '18px')
-                .text((d) => {
-                    return '';
-                })
-
-            // Transition
-            this.nodesSVG.selectAll('.ensemble-callsite')
-                .selectAll('text')
-                .data(this.graph.nodes)
-                .transition()
-                .duration(this.transitionDuration)
                 .style('opacity', 1)
                 .style('fill', d => {
                     return '#000'
@@ -434,6 +428,7 @@ export default {
                         return utils.truncNames(d.id, characterCount);
                     }
                 });
+
         },
 
         clearTargetPath() {

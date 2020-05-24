@@ -16,7 +16,6 @@ export default {
         init(nodes, containerG) {
             this.nodes = nodes
             this.containerG = containerG
-            console.log(this.containerG)
 
             this.ensemble_module_data = this.$store.modules['ensemble']
             this.ensemble_callsite_data = this.$store.callsites['ensemble']
@@ -85,74 +84,121 @@ export default {
         },
 
         visualize() {
-            console.log(this.containerG.selectAll('.callsite-rect'))
-            this.containerG.selectAll('.callsite-rect')
+
+            let rectangles = this.containerG.selectAll('rect')
                 .data(this.nodes)
+
+            // Update the current rectangles.
+            rectangles
                 .transition()
-                .duration(this.$parent.transitionDuration)
+                .duration(1000)
                 .attrs({
                     'opacity': d => {
-                        console.log(d)
                         if (d.type == "intermediate") {
-                            return 0.0
+                            return "#f00"
                         }
                         else {
-                            return 1.0;
+                            return "#0f0";
                         }
                     },
-                })
-                .style('stroke', (d) => {
-                    let runtimeColor = ''
-                    if (d.type == "intermediate") {
-                        runtimeColor = this.$store.color.ensemble
-                    }
-                    else if (d.type == 'component-node') {
-                        if (this.$store.callsites[this.$store.selectedTargetDataset][d.id] != undefined) {
-                            runtimeColor = d3.rgb(this.$store.color.getColor(d));
-                        }
-                        else {
+                    'stroke': (d) => {
+                        let runtimeColor = ''
+                        if (d.type == "intermediate") {
                             runtimeColor = this.$store.color.ensemble
                         }
-                    }
-                    else if (d.type == 'super-node') {
-                        if (this.$store.modules[this.$store.selectedTargetDataset][d.id] != undefined) {
-                            runtimeColor = d3.rgb(this.$store.color.getColor(d));
+                        else if (d.type == 'component-node') {
+                            if (this.$store.callsites[this.$store.selectedTargetDataset][d.id] != undefined) {
+                                runtimeColor = d3.rgb(this.$store.color.getColor(d));
+                            }
+                            else {
+                                runtimeColor = this.$store.color.ensemble
+                            }
+                        }
+                        else if (d.type == 'super-node') {
+                            if (this.$store.modules[this.$store.selectedTargetDataset][d.id] != undefined) {
+                                runtimeColor = d3.rgb(this.$store.color.getColor(d));
+                            }
+                            else {
+                                runtimeColor = this.$store.color.ensemble
+                            }
+                        }
+                        return runtimeColor
+                    },
+                    'stroke-width': (d) => {
+                        if (d.type == "intermediate") {
+                            return 1
                         }
                         else {
-                            runtimeColor = this.$store.color.ensemble
+                            return this.strokeWidth;
                         }
-                    }
-                    return runtimeColor
-                })
-                .style('stroke-width', (d) => {
-                    if (d.type == "intermediate") {
-                        return 1
-                    }
-                    else {
-                        return this.stroke_width;
-                    }
-                })
-                .style("fill", (d, i) => {
-                    if (d.type == "intermediate") {
-                        return this.$store.color.target
-                    }
-                    else if (d.type == 'super-node') {
-                        if (this.$store.modules[this.$store.selectedTargetDataset][d.id] == undefined) {
-                            return this.intermediateColor
+                    },
+                    'fill': (d) => {
+                        if (d.type == "intermediate") {
+                            return this.$store.color.target
                         }
-                        else {
-                            return "url(#mean-gradient" + d.client_idx + ")"
+                        else if (d.type == 'super-node') {
+                            if (this.$store.modules[this.$store.selectedTargetDataset][d.id] == undefined) {
+                                return this.intermediateColor
+                            }
+                            else {
+                                return "url(#mean-gradient" + d.client_idx + ")"
+                            }
                         }
-                    }
-                    else if (d.type == 'component-node') {
-                        if (this.$store.callsites[this.$store.selectedTargetDataset][d.name] == undefined) {
-                            return this.intermediateColor
-                        }
-                        else {
-                            return "url(#mean-gradient" + d.client_idx + ")"
+                        else if (node.type == 'component-node') {
+                            if (this.$store.callsites[this.$store.selectedTargetDataset][d.name] == undefined) {
+                                return this.intermediateColor
+                            }
+                            else {
+                                return "url(#mean-gradient" + d.client_idx + ")"
+                            }
                         }
                     }
                 })
+
+
+            // data.exit().remove()
+
+            // for (let node of this.nodes) {
+            //     console.log(node)
+            //     this.containerG.selectAll('g > rect')
+            //         .data(node)
+            //         .enter()
+            //         .filter((d) => {
+            //             return d.id == node.id
+            //         })
+            //         .append('rect')
+            //         .attrs({
+            //             'opacity': d => {
+            //                 if (d.type == "intermediate") {
+            //                     return 0.0
+            //                 }
+            //                 else {
+            //                     return 1.0;
+            //                 }
+            //             },
+            //         })
+            // }
+            // this.containerG.selectAll('g > rect')
+            //     .data(this.nodes)
+            //     .enter()
+            //     .filter((d) => {
+            //         console.log(d.id)
+            //     })
+            //     .append('rect')
+            //     .attrs({
+            //         'opacity': d => {
+            //             console.log(d)
+            //             if (d.type == "intermediate") {
+            //                 return 0.0
+            //             }
+            //             else {
+            //                 return 1.0;
+            //             }
+            //         },
+            //     })
+
+
+
         },
 
         //Gradients

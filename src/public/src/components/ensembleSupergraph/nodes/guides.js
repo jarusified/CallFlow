@@ -1,10 +1,9 @@
-import tpl from '../../../html/ensembleSupergraph/node.html'
 import * as d3 from 'd3'
 import * as utils from '../../utils'
 
 export default {
-    template: tpl,
-    name: 'TargetLine',
+    template: '<g :id="id"></g>',
+    name: 'Guides',
     components: {},
 
     data: () => ({
@@ -18,16 +17,9 @@ export default {
 
             this.ensemble_module_data = this.$store.modules['ensemble']
             this.ensemble_callsite_data = this.$store.callsites['ensemble']
-
-            this.visualize()
         },
 
-
-        visualize() {
-
-        },
-
-        drawGuides(node_data, type) {
+        visualize(node_data, type) {
             let modules_data = this.$store.modules
             let callsite_data = this.$store.callsites
 
