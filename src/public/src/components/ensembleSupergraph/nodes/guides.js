@@ -7,81 +7,90 @@ export default {
     components: {},
 
     data: () => ({
-        id: 'target-line'
+        id: 'guides',
+        nodes: [],
+        svg: undefined,
+        gradients: {},
+        positionDatasetMap: {}
     }),
 
     methods: {
-        init(nodes, svg) {
+        init(nodes) {
             this.nodes = nodes
-            this.svg = svg
 
-            this.ensemble_module_data = this.$store.modules['ensemble']
-            this.ensemble_callsite_data = this.$store.callsites['ensemble']
+            // loop through each node and map the xAxis values 
+            for (let node of this.nodes) {
+                this.process(node)
+            }
         },
 
-        visualize(node_data, type) {
-            let modules_data = this.$store.modules
-            let callsite_data = this.$store.callsites
+        update(nodes) {
+            // TODO: Find the newly added nodes. 
+            this.new_nodes = []
 
-            let node_name = ''
-            let gradients = {}
-            if (node_data.type == 'super-node') {
-                node_name = node_data.module
-                gradients = modules_data['ensemble'][node_name][this.$store.selectedMetric]['gradients']
-            }
-            else if (node_data.type == 'component-node') {
-                node_name = node_data.name
-                gradients = callsite_data['ensemble'][node_name][this.$store.selectedMetric]['gradients']
-            }
-            else {
-                gradients = {}
+            // loop through each new node and map the xAxis values 
+            for (let node of this.new_nodes) {
+                this.process(node)
             }
 
-            let histogram = gradients['hist']
-            let datasetPositionMap = gradients['dataset']['position']
+        },
 
-            let grid = histogram.x
-            let vals = histogram.y
+        process(node) {
+            this.gradients[node.id] = utils.getGradients(this.$store, node)
 
-            let targetPos = 0
-            let binWidth = node_data.height / (grid.length)
 
-            let positionDatasetMap = {}
-            // Create a position -> dataset map
-            for (let dataset in datasetPositionMap) {
-                let datasetPosition = datasetPositionMap[dataset]
-                if (positionDatasetMap[datasetPosition] == undefined) {
-                    positionDatasetMap[datasetPosition] = []
+            if (this.gradients[node.id]['dataset'] != undefined) {
+                let datasetPositionMap = this.gradients[node.id]['dataset']['position']
+
+                this.positionDatasetMap[node] = {}
+                // Create a position -> dataset map
+                for (let dataset in datasetPositionMap) {
+                    let datasetPosition = datasetPositionMap[dataset]
+                    if (this.positionDatasetMap[node][datasetPosition] == undefined) {
+                        this.positionDatasetMap[node][datasetPosition] = []
+                    }
+                    this.positionDatasetMap[node][datasetPosition].push(dataset)
                 }
-                positionDatasetMap[datasetPosition].push(dataset)
             }
+        },
 
-            this.guidesG = d3.select('#ensemble-callsite-' + node_data.client_idx)
-                .append('g')
+        drawLines(node, guideType) {
+            let xAxis = this.gradients[node.id]['hist'].x
+            let binWidth = node.height / (xAxis.length)
 
-            for (let idx = 0; idx < grid.length; idx += 1) {
+            for (let idx = 0; idx < xAxis.length; idx += 1) {
                 let y = binWidth * (idx)
 
-                d3.selectAll('.ensemble-edge')
-                    .style('opacity', 0.5)
-
                 // For drawing the guide lines that have the value.
-                this.guidesG
+                node.svg
                     .append('line')
                     .attrs({
-                        "class": 'gradientGuides-' + type,
-                        "id": 'line-2-' + node_data['client_idx'],
+                        "class": 'gradientGuides-' + guideType,
+                        "id": 'line-2-' + node.client_idx,
                         "x1": 0,
                         "y1": y,
-                        "x2": this.nodeWidth,
+                        "x2": this.$parent.nodeWidth,
                         "y2": y,
                         "stroke-width": 1.5,
                         'opacity': 0.3,
                         "stroke": '#202020'
                     })
+            }
+        },
+
+        // TODO: Clean up the different modes. 
+        drawText(node, guideType) {
+            let xAxis = this.gradients[node.id]['hist'].x
+            let yAxis = this.gradients[node.id]['hist'].y
+
+            let binWidth = node.height / (xAxis.length)
+
+
+            for (let idx = 0; idx < xAxis.length; idx += 1) {
+                let y = binWidth * (idx)
 
                 let fontSize = 12
-                if (vals[idx] != 0) {
+                if (yAxis[idx] != 0) {
                     // For placing the run count values.
                     // for (let i = 0; i < positionDatasetMap[idx].length; i += 1) {
                     let textGuideType = 'summary'
@@ -91,11 +100,11 @@ export default {
                         if (positionDatasetMap[idx].length < 3) {
                             for (let i = 0; i < 3; i += 1) {
                                 leftSideText = positionDatasetMap[idx][i]
-                                this.guidesG
+                                node.svg
                                     .append('text')
                                     .attrs({
                                         "class": 'gradientGuidesText-' + type,
-                                        "id": 'line-2-' + node_data['client_idx'],
+                                        "id": 'line-2-' + node['client_idx'],
                                         "x": -60,
                                         "y": y + fontSize / 2 + binWidth / 2 + fontSize * i,
                                         'fill': 'black'
@@ -110,11 +119,11 @@ export default {
                             let count = positionDatasetMap[idx].length - 3
                             text = text + '+' + count
 
-                            this.guidesG
+                            node.svg
                                 .append('text')
                                 .attrs({
                                     "class": 'gradientGuidesText-' + type,
-                                    "id": 'line-2-' + node_data['client_idx'],
+                                    "id": 'line-2-' + node['client_idx'],
                                     "x": -60,
                                     "y": y + fontSize / 2 + binWidth / 2 + fontSize * i,
                                     'fill': 'black'
@@ -126,12 +135,12 @@ export default {
 
                     }
                     else if (textGuideType == 'summary') {
-                        leftSideText = utils.formatRunCounts(vals[idx])
-                        this.guidesG
+                        leftSideText = utils.formatRunCounts(yAxis[idx])
+                        node.svg
                             .append('text')
                             .attrs({
-                                "class": 'gradientGuidesText-' + type,
-                                "id": 'line-2-' + node_data['client_idx'],
+                                "class": 'gradientGuidesText-' + guideType,
+                                "id": 'line-2-' + node['client_idx'],
                                 "x": -60,
                                 "y": y + fontSize / 2 + binWidth / 2, //+ fontSize * i,
                                 'fill': 'black'
@@ -142,13 +151,13 @@ export default {
                     }
 
                     // For placing the runtime values.
-                    if (idx != 0 && idx != grid.length - 1) {
-                        let text = utils.formatRuntimeWithUnits(grid[idx]) //+ this.formatRunCounts(vals[idx])
-                        this.guidesG
+                    if (idx != 0 && idx != xAxis.length - 1) {
+                        let text = utils.formatRuntimeWithUnits(xAxis[idx])
+                        node.svg
                             .append('text')
                             .attrs({
-                                "class": 'gradientGuidesText-' + type,
-                                "id": 'line-2-' + node_data['client_idx'],
+                                "class": 'gradientGuidesText-' + guideType,
+                                "id": 'line-2-' + node['client_idx'],
                                 "x": this.nodeWidth + 10,
                                 "y": y + fontSize / 2,
                                 'fill': 'black'
@@ -160,34 +169,43 @@ export default {
                 }
 
                 if (idx == 0) {
-                    this.guidesG
+                    node.svg
                         .append('text')
                         .attrs({
-                            "class": 'gradientGuidesText-' + type,
-                            "id": 'line-2-' + node_data['client_idx'],
+                            "class": 'gradientGuidesText-' + guideType,
+                            "id": 'line-2-' + node.client_idx,
                             "x": this.nodeWidth + 10,
                             "y": y,
                             'fill': 'black'
                         })
                         .style('z-index', 100)
                         .style('font-size', fontSize + 'px')
-                        .text('Min. = ' + utils.formatRuntimeWithUnits(grid[idx]))
+                        .text('Min. = ' + utils.formatRuntimeWithUnits(xAxis[idx]))
                 }
-                else if (idx == grid.length - 1) {
-                    this.guidesG
+                else if (idx == xAxis.length - 1) {
+                    node.svg
                         .append('text')
                         .attrs({
-                            "class": 'gradientGuidesText-' + type,
-                            "id": 'line-2-' + node_data['client_idx'],
-                            "x": this.nodeWidth + 10,
+                            "class": 'gradientGuidesText-' + guideType,
+                            "id": 'line-2-' + node.client_idx,
+                            "x": this.$parent.nodeWidth + 10,
                             "y": y + 2 * binWidth,
                             'fill': 'black'
                         })
                         .style('z-index', 100)
                         .style('font-size', fontSize + 'px')
-                        .text('Max. = ' + utils.formatRuntimeWithUnits(grid[idx]))
+                        .text('Max. = ' + utils.formatRuntimeWithUnits(xAxis[idx]))
                 }
             }
+        },
+
+        visualize(node, guideType) {
+            // Fade the edges when we see the guides. 
+            d3.selectAll('.ensemble-edge')
+                .style('opacity', 0.3)
+
+            this.drawLines(node, guideType)
+            this.drawText(node, guideType)
         },
 
 

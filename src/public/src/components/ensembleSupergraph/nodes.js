@@ -130,13 +130,13 @@ export default {
             this.ensemble_module_data = this.$store.modules['ensemble']
             this.ensemble_callsite_data = this.$store.callsites['ensemble']
 
-            this.setClientIds()
+            this.preVis()
             this.visualize()
+            this.postVis()
         },
 
         visualize() {
             this.rectangle()
-
 
             this.$store.mode = 'mean-gradients'
 
@@ -162,16 +162,22 @@ export default {
                     this.targetPath()
                 }
             }
-            this.$refs.Guides.init(this.graph.nodes, this.containerG)
+            this.$refs.Guides.init(this.graph.nodes)
             this.$refs.ToolTip.init(this.$parent.id)
         },
 
-        setClientIds() {
+        preVis() {
             let idx = 0
             for (let node of this.graph.nodes) {
                 this.nidNameMap[node.id] = idx
                 node.client_idx = idx
                 idx += 1
+            }
+        },
+
+        postVis() {
+            for (let node of this.graph.nodes) {
+                node.svg = this.containerG.select('#ensemble-callsite-' + node.client_idx)
             }
         },
 
@@ -221,17 +227,17 @@ export default {
                 .on('mouseout', (d) => this.mouseover(d))
         },
 
-        click(d) {
-            if (!this.drawGuidesMap[d.id]) {
-                this.$refs.Guides.visualize(d, 'permanent')
-                this.drawGuidesMap[d.id] = true
-            }
-            d3.selectAll('.ensemble-edge')
-                .style('opacity', 0.3)
+        click(node) {
+            let nodeSVG = this.containerG.select('#ensemble-callsite-' + node.client_idx)
 
-            this.$store.selectedNode = d
-            this.$store.selectedModule = d.module
-            this.$store.selectedName = d.name
+            if (!this.drawGuidesMap[node.id]) {
+                this.$refs.Guides.visualize(node, 'permanent', nodeSVG)
+                this.drawGuidesMap[node.id] = true
+            }
+
+            this.$store.selectedNode = node
+            this.$store.selectedModule = node.module
+            this.$store.selectedName = node.name
 
             this.$socket.emit('module_hierarchy', {
                 module: this.$store.selectedModule,

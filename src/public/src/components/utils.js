@@ -112,3 +112,21 @@ export function textSize(id, text) {
         height: size.height
     };
 }
+
+
+export function getGradients(store, node) {
+    let nodeName = ''
+    let gradients = {}
+    if (node.type == 'super-node') {
+        nodeName = node.module
+        gradients = store.modules['ensemble'][nodeName][store.selectedMetric]['gradients']
+    }
+    else if (node.type == 'component-node') {
+        nodeName = node.name
+        gradients = store.callsites['ensemble'][nodeName][tore.selectedMetric]['gradients']
+    }
+    else if (node.type == 'intermediate') {
+        gradients = {}
+    }
+    return gradients
+}
