@@ -165,20 +165,7 @@ export default {
 		targetInfo: 'Target Guides',
 		metricTimeMap: {}, // Stores the metric map for each dataset (sorted by inclusive/exclusive time)
 		firstRender: true,
-		contextMenu: [
-			{
-				title: 'Split by caller',
-				action(elm, d, i) {
 
-				},
-			},
-			{
-				title: 'Split by callee',
-				action(elm, d, i) {
-				},
-			},
-
-		]
 	}),
 
 	mounted() {
@@ -778,6 +765,7 @@ export default {
 
 		updateCompareDataset() {
 			this.summaryChip = 'Diff SuperGraph'
+			console.log("here")
 			this.$store.selectedCompareDataset = this.selectedCompareDataset
 			this.$store.compareAnalysisMode = true
 			this.$socket.emit('compare', {

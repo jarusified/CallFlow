@@ -15,34 +15,62 @@ export default {
     methods: {
         init(nodes, svg) {
             this.nodes = nodes
-            this.svg = svg
 
-            this.ensemble_module_data = this.$store.modules['ensemble']
-            this.ensemble_callsite_data = this.$store.callsites['ensemble']
-
-            this.colorScale()
+            this.process(data)
             this.gradients()
             this.visualize()
         },
 
-        colorScale() {
-            let hist_min = 0
-            let hist_max = 0
-            for (let node of this.nodes) {
-                if (node.type == 'super-node') {
-                    hist_min = Math.min(hist_min, this.ensemble_module_data[node.module][this.$store.selectedMetric]['gradients']['hist']['y_min'])
-                    hist_max = Math.max(hist_max, this.ensemble_module_data[node.module][this.$store.selectedMetric]['gradients']['hist']['y_max'])
+        process(data) {
+            this.renderZeroLine = {}
+
+            this.rank_min = 0
+            this.rank_max = 0
+            this.mean_min = 0
+            this.mean_max = 0
+            this.mean_diff_min = 0
+            this.mean_diff_max = 0
+
+            for (let i = 0; i < data.length; i += 1) {
+                if (this.$store.selectedMetric == 'Inclusive') {
+                    this.rank_min = Math.min(this.rank_min, data[i]['hist']['y_min'])
+                    this.rank_max = Math.max(this.rank_max, data[i]['hist']['y_max'])
+                    this.mean_min = Math.min(this.mean_min, data[i]['hist']['x_min'])
+                    this.mean_max = Math.max(this.mean_max, data[i]['hist']['x_max'])
+                    this.mean_diff_min = Math.min(this.mean_diff_min, data[i]['mean_diff'])
+                    this.mean_diff_max = Math.max(this.mean_diff_max, data[i]['mean_diff'])
                 }
-                else if (node.type == 'component-node') {
-                    hist_min = Math.min(hist_min, this.ensemble_callsite_data[node.name][this.$store.selectedMetric]['gradients']['hist']['y_min'])
-                    hist_max = Math.max(hist_max, this.ensemble_callsite_data[node.name][this.$store.selectedMetric]['gradients']['hist']['y_max'])
+                else if (this.$store.selectedMetric == 'Exclusive') {
+                    this.rank_min = Math.min(this.rank_min, data[i]['hist']['y_min'])
+                    this.rank_max = Math.max(this.rank_max, data[i]['hist']['y_max'])
+                    this.mean_min = Math.min(this.mean_min, data[i]['hist']['x_min'])
+                    this.mean_max = Math.max(this.mean_max, data[i]['hist']['x_max'])
+                    this.mean_diff_min = Math.min(this.mean_diff_min, data[i]['mean_diff'])
+                    this.mean_diff_max = Math.max(this.mean_diff_max, data[i]['mean_diff'])
                 }
             }
-            this.$store.binColor.setColorScale(hist_min, hist_max, this.$store.selectedDistributionColorMap, this.$store.selectedColorPoint)
-            this.$parent.$parent.$refs.EnsembleColorMap.updateWithMinMax('bin', hist_min, hist_max)
+            if (this.$store.selectedCompareMode == 'Rank-wise Differences') {
+                this.$store.rankDiffColor.setColorScale(this.rank_min, this.rank_max, this.$store.selectedDistributionColorMap, this.$store.selectedColorPoint)
+                this.$parent.$refs.EnsembleColorMap.update('rankDiff', data)
+                this.setupDiffRuntimeGradients(data)
+                this.rankDiffRectangle()
+            }
+            else if (this.$store.selectedCompareMode == 'Mean Differences') {
+
+            }
+
         },
 
-        meanDiffRectangle(diff) {
+        colorScale() {
+            let max_diff = Math.max(Math.abs(this.mean_diff_min), Math.abs(this.mean_diff_max))
+
+            this.$store.meanDiffColor.setColorScale(this.mean_diff_min, this.mean_diff_max, this.$store.selectedDistributionColorMap, this.$store.selectedColorPoint)
+            this.$parent.$refs.EnsembleColorMap.updateWithMinMax('meanDiff', this.mean_diff_min, this.mean_diff_max)
+
+            this.meanDiffRectangle(data)
+        },
+
+        visualize(diff) {
             let self = this
             let mean_diff = {}
             let max_diff = 0

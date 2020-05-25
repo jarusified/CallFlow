@@ -50,5 +50,9 @@ export default {
         clear(node) {
             node.svg.selectAll('.targetLines').remove()
         },
+
+        clearAll() {
+            d3.selectAll('.targetLines').remove()
+        }
     }
 }

@@ -1,6 +1,6 @@
 import tpl from '../../html/ensembleSupergraph/edges.html'
 import * as d3 from 'd3'
-import ToolTip from './edgeTooltip'
+import ToolTip from './edges/tooltip'
 
 export default {
     template: tpl,
@@ -55,7 +55,7 @@ export default {
             }
 
 
-            this.$refs.ToolTip.init(this.$parent.id)
+            // this.$refs.ToolTip.init(this.$parent.id)
         },
 
         initEdges(dataset) {
@@ -222,10 +222,10 @@ export default {
                     'stroke': this.$store.color.edgeStrokeColor,
                 })
                 .on('mouseover', (d) => {
-                    self.$refs.ToolTip.render(self.graph, d)
+                    // self.$refs.ToolTip.render(self.graph, d)
                 })
                 .on('mouseout', (d) => {
-                    self.$refs.ToolTip.clear()
+                    // self.$refs.ToolTip.clear()
                 })
         },
 

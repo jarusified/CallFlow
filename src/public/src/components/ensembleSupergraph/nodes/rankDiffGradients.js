@@ -26,20 +26,10 @@ export default {
         },
 
         colorScale() {
-            let hist_min = 0
-            let hist_max = 0
-            for (let node of this.nodes) {
-                if (node.type == 'super-node') {
-                    hist_min = Math.min(hist_min, this.ensemble_module_data[node.module][this.$store.selectedMetric]['gradients']['hist']['y_min'])
-                    hist_max = Math.max(hist_max, this.ensemble_module_data[node.module][this.$store.selectedMetric]['gradients']['hist']['y_max'])
-                }
-                else if (node.type == 'component-node') {
-                    hist_min = Math.min(hist_min, this.ensemble_callsite_data[node.name][this.$store.selectedMetric]['gradients']['hist']['y_min'])
-                    hist_max = Math.max(hist_max, this.ensemble_callsite_data[node.name][this.$store.selectedMetric]['gradients']['hist']['y_max'])
-                }
-            }
-            this.$store.binColor.setColorScale(hist_min, hist_max, this.$store.selectedDistributionColorMap, this.$store.selectedColorPoint)
-            this.$parent.$parent.$refs.EnsembleColorMap.updateWithMinMax('bin', hist_min, hist_max)
+            this.$store.rankDiffColor.setColorScale(this.rank_min, this.rank_max, this.$store.selectedDistributionColorMap, this.$store.selectedColorPoint)
+            this.$parent.$refs.EnsembleColorMap.update('rankDiff', data)
+            this.setupDiffRuntimeGradients(data)
+            this.rankDiffRectangle()
         },
 
         gradients() {

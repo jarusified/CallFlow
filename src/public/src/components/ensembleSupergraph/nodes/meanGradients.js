@@ -84,7 +84,6 @@ export default {
         },
 
         visualize() {
-
             let rectangles = this.containerG.selectAll('rect')
                 .data(this.nodes)
 
@@ -154,51 +153,6 @@ export default {
                         }
                     }
                 })
-
-
-            // data.exit().remove()
-
-            // for (let node of this.nodes) {
-            //     console.log(node)
-            //     this.containerG.selectAll('g > rect')
-            //         .data(node)
-            //         .enter()
-            //         .filter((d) => {
-            //             return d.id == node.id
-            //         })
-            //         .append('rect')
-            //         .attrs({
-            //             'opacity': d => {
-            //                 if (d.type == "intermediate") {
-            //                     return 0.0
-            //                 }
-            //                 else {
-            //                     return 1.0;
-            //                 }
-            //             },
-            //         })
-            // }
-            // this.containerG.selectAll('g > rect')
-            //     .data(this.nodes)
-            //     .enter()
-            //     .filter((d) => {
-            //         console.log(d.id)
-            //     })
-            //     .append('rect')
-            //     .attrs({
-            //         'opacity': d => {
-            //             console.log(d)
-            //             if (d.type == "intermediate") {
-            //                 return 0.0
-            //             }
-            //             else {
-            //                 return 1.0;
-            //             }
-            //         },
-            //     })
-
-
-
         },
 
         //Gradients

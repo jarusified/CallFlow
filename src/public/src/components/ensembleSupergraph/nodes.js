@@ -1,11 +1,11 @@
 import tpl from '../../html/ensembleSupergraph/nodes.html'
 import * as d3 from 'd3'
-import ToolTip from './nodeTooltip'
 import EventHandler from '../EventHandler'
 import * as utils from '../utils'
 import MeanGradients from './nodes/meanGradients'
 import Guides from './nodes/guides'
 import TargetLine from './nodes/targetLine'
+import ToolTip from './nodes/tooltip'
 
 export default {
     template: tpl,
@@ -19,7 +19,7 @@ export default {
     data: () => ({
         currentNodeLevel: {},
         nodeWidth: 50,
-        transitionDuration: 1000,
+        transitionDuration: 500,
         nodeHeights: {},
         minHeightForText: 15,
         textTruncForNode: 25,
@@ -35,50 +35,10 @@ export default {
         compare(data) {
             console.log("[Comparison] Data:", data)
             this.clearGradients()
-            this.clearZeroLine()
-            this.renderZeroLine = {}
+            // this.clearZeroLine()
+            d3.selectAll('.target-path').remove()
 
-            this.rank_min = 0
-            this.rank_max = 0
-            this.mean_min = 0
-            this.mean_max = 0
-            this.mean_diff_min = 0
-            this.mean_diff_max = 0
-
-            for (let i = 0; i < data.length; i += 1) {
-                if (this.$store.selectedMetric == 'Inclusive') {
-                    this.rank_min = Math.min(this.rank_min, data[i]['hist']['y_min'])
-                    this.rank_max = Math.max(this.rank_max, data[i]['hist']['y_max'])
-                    this.mean_min = Math.min(this.mean_min, data[i]['hist']['x_min'])
-                    this.mean_max = Math.max(this.mean_max, data[i]['hist']['x_max'])
-                    this.mean_diff_min = Math.min(this.mean_diff_min, data[i]['mean_diff'])
-                    this.mean_diff_max = Math.max(this.mean_diff_max, data[i]['mean_diff'])
-                }
-                else if (this.$store.selectedMetric == 'Exclusive') {
-                    this.rank_min = Math.min(this.rank_min, data[i]['hist']['y_min'])
-                    this.rank_max = Math.max(this.rank_max, data[i]['hist']['y_max'])
-                    this.mean_min = Math.min(this.mean_min, data[i]['hist']['x_min'])
-                    this.mean_max = Math.max(this.mean_max, data[i]['hist']['x_max'])
-                    this.mean_diff_min = Math.min(this.mean_diff_min, data[i]['mean_diff'])
-                    this.mean_diff_max = Math.max(this.mean_diff_max, data[i]['mean_diff'])
-                }
-            }
-            if (this.$store.selectedCompareMode == 'Rank-wise Differences') {
-                this.$store.rankDiffColor.setColorScale(this.rank_min, this.rank_max, this.$store.selectedDistributionColorMap, this.$store.selectedColorPoint)
-                this.$parent.$refs.EnsembleColorMap.update('rankDiff', data)
-                this.setupDiffRuntimeGradients(data)
-                this.rankDiffRectangle()
-            }
-            else if (this.$store.selectedCompareMode == 'Mean Differences') {
-                let max_diff = Math.max(Math.abs(this.mean_diff_min), Math.abs(this.mean_diff_max))
-
-                this.$store.meanDiffColor.setColorScale(this.mean_diff_min, this.mean_diff_max, this.$store.selectedDistributionColorMap, this.$store.selectedColorPoint)
-                this.$parent.$refs.EnsembleColorMap.updateWithMinMax('meanDiff', this.mean_diff_min, this.mean_diff_max)
-
-                this.meanDiffRectangle(data)
-            }
-            this.clearPaths()
-            d3.selectAll('.targetLines').remove()
+            this.$refs.TargetLine.clearAll()
             d3.selectAll('.histogram-bar-target').remove()
             d3.selectAll('#ensemble-edge-target').remove()
 
@@ -91,6 +51,14 @@ export default {
 
             // remove colormap container
             d3.selectAll('.dist-colormap').remove()
+
+            if (this.$store.selectedCompareMode == 'rank-diff') {
+                this.$refs.RankDiff.init(data)
+            }
+            else if (this.$store.selectedCompareMode == 'mean-diff') {
+                this.$refs.MeanDiff.init(data)
+            }
+
         }
     },
     mounted() {
@@ -161,7 +129,7 @@ export default {
                 this.$refs.TargetLine.init(this.graph.nodes)
 
                 if (this.$store.comparisonMode == false) {
-                    // this.targetPath()
+                    this.targetPath()
                 }
             }
             this.$refs.Guides.init(this.graph.nodes)
@@ -224,9 +192,8 @@ export default {
                 })
                 .style('shape-rendering', 'crispEdges')
                 .on('click', d => this.click(d))
-                .on('dblclick', (d) => this.dblclick(d))
                 .on('mouseover', (d) => this.mouseover(d))
-                .on('mouseout', (d) => this.mouseover(d))
+                .on('mouseout', (d) => this.mouseout(d))
         },
 
         click(node) {
@@ -273,33 +240,14 @@ export default {
             })
         },
 
-        dblclick(d) {
-            d3.selectAll('.ensemble-edge')
-                .style('opacity', 1.0)
-
-            this.permanentGuides = true
-            this.drawGuides(d, 'permanent')
-            this.drawGuidesMap[d.id] = true
+        mouseover(node) {
+            this.$refs.ToolTip.visualize(self.graph, node)
+            this.$refs.Guides.visualize(node, 'temporary')
         },
 
-        mouseover(d) {
-            this.$refs.ToolTip.render(self.graph, d)
-            // this.$store.selectedNode = d
-            // this.$store.selectedModule = d.module
-
-            // EventHandler.$emit('highlight_module', {
-            //     module: this.$store.selectedModule,
-            // })
-
-            this.drawGuides(d, 'temporary')
-        },
-
-        mouseout(d) {
+        mouseout(node) {
             this.$refs.ToolTip.clear()
-
-            // EventHandler.$emit('unhighlight_module')
-
-            this.clearGuides('temporary')
+            this.$refs.Guides.clear(node, 'temporary')
             if (this.permanentGuides == false) {
                 d3.selectAll('.ensemble-edge')
                     .style('opacity', 1.0)
@@ -343,7 +291,7 @@ export default {
                 })
                 .style('stroke-opacity', '0.0');
 
-            this.nodes
+            this.nodesSVG
                 .selectAll('.target-path')
                 .data(this.graph.nodes)
                 .transition()
@@ -451,10 +399,10 @@ export default {
 
             }
             else if (this.$store.mode == 'mean-diff') {
-
+                this.$refs.MeanDiff.clear(this.graph.nodes, this.containerG)
             }
             else if (this.$store.mode == 'rank-diff') {
-
+                this.$refs.RankDiff.clear(this.graph.nodes, this.containerG)
             }
         },
 
