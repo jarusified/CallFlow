@@ -56,9 +56,7 @@ export default {
 
 	watch: {
 		showTarget: (val) => {
-			EventHandler.$emit('show_target_auxiliary', {
-
-			})
+			EventHandler.$emit('show_target_auxiliary')
 		}
 	},
 
@@ -163,7 +161,7 @@ export default {
 		targetColors: ['Green', 'Blue', 'Brown'],
 		selectedTargetColor: '',
 		selectedTargetColorText: 'Green',
-		showTarget: false,
+		showTarget: true,
 		targetInfo: 'Target Guides',
 		metricTimeMap: {}, // Stores the metric map for each dataset (sorted by inclusive/exclusive time)
 		firstRender: true,

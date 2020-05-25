@@ -209,7 +209,7 @@ export default {
         },
 
 
-        clear() {
+        clear(type) {
             d3.selectAll('.gradientGuides-' + type).remove()
             d3.selectAll('.gradientGuidesText-' + type).remove()
         },

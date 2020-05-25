@@ -5,6 +5,7 @@ import EventHandler from '../EventHandler'
 import * as utils from '../utils'
 import MeanGradients from './nodes/meanGradients'
 import Guides from './nodes/guides'
+import TargetLine from './nodes/targetLine'
 
 export default {
     template: tpl,
@@ -12,7 +13,8 @@ export default {
     components: {
         ToolTip,
         MeanGradients,
-        Guides
+        Guides,
+        TargetLine
     },
     data: () => ({
         currentNodeLevel: {},
@@ -132,11 +134,11 @@ export default {
 
             this.preVis()
             this.visualize()
-            this.postVis()
         },
 
         visualize() {
             this.rectangle()
+            this.postVis()
 
             this.$store.mode = 'mean-gradients'
 
@@ -156,10 +158,10 @@ export default {
             this.ensemblePath()
             this.text()
             if (this.$store.showTarget) {
-                this.drawTargetLine()
+                this.$refs.TargetLine.init(this.graph.nodes)
 
                 if (this.$store.comparisonMode == false) {
-                    this.targetPath()
+                    // this.targetPath()
                 }
             }
             this.$refs.Guides.init(this.graph.nodes)
@@ -439,6 +441,21 @@ export default {
 
         clearTargetPath() {
             d3.selectAll('.target-path').remove()
+        },
+
+        clearGradients() {
+            if (this.$store.mode == 'mean-gradients') {
+                this.$refs.MeanGradients.clear(this.graph.nodes, this.containerG)
+            }
+            else if (this.$store.mode == 'mean') {
+
+            }
+            else if (this.$store.mode == 'mean-diff') {
+
+            }
+            else if (this.$store.mode == 'rank-diff') {
+
+            }
         },
 
         clear() {
