@@ -94,8 +94,6 @@ class Compare:
             "name"
         ].unique()
 
-        print(callsite_in_module1, callsite_in_module2)
-
         mean1 = 0
         for callsite in callsite_in_module1:
             mean = self.mean(self.df1, "name", callsite, "time")
@@ -126,8 +124,6 @@ class Compare:
         dataset2 = np.array([self.dataset2 for _ in range(data2.shape[0])])
         module2 = np.asarray(node_df2["module"])
 
-        # name = name2
-        # module = module2
         dataset = np.concatenate([dataset1, dataset2], axis=0)
         mean = np.mean([zero_inserted_data1, zero_inserted_data2], axis=0)
         diff = zero_inserted_data1 - zero_inserted_data2
@@ -144,7 +140,7 @@ class Compare:
 
         mean_diff = self.mean_difference(module)
 
-        print(mean_diff)
+        print("Mean differences", mean_diff)
 
         dist_list = np.sort(diff).tolist()
 

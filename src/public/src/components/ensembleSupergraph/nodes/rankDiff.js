@@ -1,5 +1,4 @@
 import * as d3 from 'd3'
-import * as utils from '../../utils'
 
 export default {
     template: '<g :id="id"></g>',
@@ -8,40 +7,70 @@ export default {
 
     data: () => ({
         strokeWidth: 7,
-        id: 'mean-gradients'
+        id: 'rank-diff-gradients',
+        renderZeroLine: {},
     }),
 
     methods: {
-        init(nodes, svg) {
+        init(nodes, containerG, data) {
             this.nodes = nodes
-            this.svg = svg
+            this.containerG = containerG
+            this.data = data
 
-            this.ensemble_module_data = this.$store.modules['ensemble']
-            this.ensemble_callsite_data = this.$store.callsites['ensemble']
-
+            this.process()
             this.colorScale()
             this.gradients()
             this.visualize()
         },
 
+        process() {
+            this.renderZeroLine = {}
+
+            this.rank_min = 0
+            this.rank_max = 0
+            this.mean_min = 0
+            this.mean_max = 0
+            this.mean_diff_min = 0
+            this.mean_diff_max = 0
+
+            for (let i = 0; i < this.data.length; i += 1) {
+                if (this.$store.selectedMetric == 'Inclusive') {
+                    this.rank_min = Math.min(this.rank_min, this.data[i]['hist']['y_min'])
+                    this.rank_max = Math.max(this.rank_max, this.data[i]['hist']['y_max'])
+                    this.mean_min = Math.min(this.mean_min, this.data[i]['hist']['x_min'])
+                    this.mean_max = Math.max(this.mean_max, this.data[i]['hist']['x_max'])
+                    this.mean_diff_min = Math.min(this.mean_diff_min, this.data[i]['mean_diff'])
+                    this.mean_diff_max = Math.max(this.mean_diff_max, this.data[i]['mean_diff'])
+                }
+                else if (this.$store.selectedMetric == 'Exclusive') {
+                    this.rank_min = Math.min(this.rank_min, this.data[i]['hist']['y_min'])
+                    this.rank_max = Math.max(this.rank_max, this.data[i]['hist']['y_max'])
+                    this.mean_min = Math.min(this.mean_min, this.data[i]['hist']['x_min'])
+                    this.mean_max = Math.max(this.mean_max, this.data[i]['hist']['x_max'])
+                    this.mean_diff_min = Math.min(this.mean_diff_min, this.data[i]['mean_diff'])
+                    this.mean_diff_max = Math.max(this.mean_diff_max, this.data[i]['mean_diff'])
+                }
+            }
+        },
+
         colorScale() {
             this.$store.rankDiffColor.setColorScale(this.rank_min, this.rank_max, this.$store.selectedDistributionColorMap, this.$store.selectedColorPoint)
-            this.$parent.$refs.EnsembleColorMap.update('rankDiff', data)
-            this.setupDiffRuntimeGradients(data)
-            this.rankDiffRectangle()
+            this.$parent.$parent.$refs.EnsembleColorMap.update('rankDiff', this.data)
         },
 
         gradients() {
             let method = 'hist'
-            for (let i = 0; i < data.length; i += 1) {
-                let d = data[i]
-                var defs = d3.select('#ensemble-supergraph-overview')
+            for (let i = 0; i < this.data.length; i += 1) {
+                let d = this.data[i]
+                let defs = d3.select('#' + this.id)
                     .append("defs");
+
+                console.log(d)
 
                 this.diffGradient = defs.append("linearGradient")
                     .attrs({
-                        "id": "diff-gradient-" + this.nidNameMap[d.name],
-                        "class": 'linear-gradient'
+                        "id": "diff-gradient-" + this.$parent.nidNameMap[d.name],
+                        "class": 'diff-gradient'
                     })
 
                 this.diffGradient
@@ -51,9 +80,6 @@ export default {
                         "x2": "0%",
                         "y2": "100%"
                     })
-
-                let min_val = d[method]['y_min']
-                let max_val = d[method]['y_max']
 
                 let grid = d[method]['x']
                 let val = d[method]['y']
@@ -81,14 +107,14 @@ export default {
 
         zeroLine(node, y1) {
             if (this.renderZeroLine[node] == undefined) {
-                d3.select('#ensemble-callsite-' + this.nidNameMap[node])
+                d3.select('#ensemble-callsite-' + node.client_idx)
                     .append('line')
                     .attrs((d) => {
                         return {
                             'class': 'zeroLine',
                             "x1": 0,
                             "y1": y1 * d.height,
-                            "x2": this.nodeWidth,
+                            "x2": this.$parent.nodeWidth,
                             "y2": y1 * d.height
                         }
                     })
@@ -100,12 +126,12 @@ export default {
                         return 5
                     })
 
-                d3.select('#ensemble-callsite-' + this.nidNameMap[node])
+                d3.select('#ensemble-callsite-' + this.$parent.nidNameMap[node])
                     .append('text')
                     .attrs({
                         'class': 'zeroLineText',
                         'dy': '0',
-                        'x': this.nodeWidth / 2 - 10,
+                        'x': this.$parent.nodeWidth / 2 - 10,
                         'y': (d) => y1 * d.height - 5
                     })
                     .style('opacity', 1)
@@ -115,15 +141,16 @@ export default {
                     })
                 this.renderZeroLine[node] = true
             }
-            else {
-            }
         },
 
         visualize() {
-            this.svg.selectAll('rect')
+            let rectangles = this.containerG.selectAll('rect')
                 .data(this.nodes)
+
+            // Transition
+            rectangles
                 .transition()
-                .duration(this.transitionDuration)
+                .duration(this.$store.transitionDuration)
                 .attrs({
                     'opacity': d => {
                         if (d.type == "intermediate") {
@@ -133,7 +160,6 @@ export default {
                             return 1.0;
                         }
                     },
-
                 })
                 .style('stroke', (d) => {
                     let runtimeColor = ''
@@ -173,7 +199,7 @@ export default {
 
         //Gradients
         clearGradients() {
-            this.svg.selectAll('.mean-gradient').remove()
+            this.svg.selectAll('.diff-gradient').remove()
         },
 
         clear() {

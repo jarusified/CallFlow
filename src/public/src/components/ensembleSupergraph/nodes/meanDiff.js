@@ -8,7 +8,7 @@ export default {
 
     data: () => ({
         strokeWidth: 7,
-        id: 'mean-gradients',
+        id: 'mean-diff-gradients',
         meanDiff: {}
     }),
 

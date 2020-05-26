@@ -158,8 +158,8 @@ export default {
                             .attrs({
                                 "class": 'gradientGuidesText-' + guideType,
                                 "id": 'line-2-' + node['client_idx'],
-                                "x": this.nodeWidth + 10,
-                                "y": y + fontSize / 2,
+                                "x": this.$parent.nodeWidth + 10,
+                                "y": y + fontSize / 2 + binWidth / 2,
                                 'fill': 'black'
                             })
                             .style('z-index', 100)
@@ -174,7 +174,7 @@ export default {
                         .attrs({
                             "class": 'gradientGuidesText-' + guideType,
                             "id": 'line-2-' + node.client_idx,
-                            "x": this.nodeWidth + 10,
+                            "x": this.$parent.nodeWidth + 10,
                             "y": y,
                             'fill': 'black'
                         })
@@ -189,7 +189,7 @@ export default {
                             "class": 'gradientGuidesText-' + guideType,
                             "id": 'line-2-' + node.client_idx,
                             "x": this.$parent.nodeWidth + 10,
-                            "y": y + 2 * binWidth,
+                            "y": y + binWidth,
                             'fill': 'black'
                         })
                         .style('z-index', 100)
