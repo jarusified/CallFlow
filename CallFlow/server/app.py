@@ -71,10 +71,10 @@ class App:
         self.create_dot_callflow_folder()
 
         if self.config.ensemble:
-            self.callflow = EnsembleCallFlow(self.config)
+            self.callflow = EnsembleCallFlow(self.config, process=True)
             # self.single_callflow = SingleCallFlow(self.config)
         else:
-            self.single_callflow = SingleCallFlow(self.config)
+            self.single_callflow = SingleCallFlow(self.config, process=True)
 
     def renderPipeline(self, config_file_name):
         self.config = ConfigFileReader(
