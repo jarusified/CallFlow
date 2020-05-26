@@ -16,8 +16,8 @@ from ast import literal_eval as make_tuple
 import numpy as np
 from .gradients import KDE_gradients
 from .boxplot import BoxPlot
-from utils.logger import log
-from utils.timer import Timer
+from ...utils.logger import log
+from ...utils.timer import Timer
 import time
 import math
 import os

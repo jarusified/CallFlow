@@ -20,7 +20,7 @@ setup(
     description="",
     url="https://github.com/LLNL/CallFlow",
     author="Suraj Kesavan",
-    author_email="bhatele@cs.umd.edu",
+    author_email="spkesavan@ucdavis.edu",
     license="MIT",
     classifiers=[
         "Development Status :: 1 - Planning",

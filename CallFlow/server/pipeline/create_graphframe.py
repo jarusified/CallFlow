@@ -11,8 +11,7 @@
 ##############################################################################
 import pandas as pd
 import time
-import utils
-from utils.logger import log
+from ..utils.logger import log
 import os
 import hatchet as ht
 
@@ -42,7 +41,7 @@ class CreateGraphFrame:
         elif self.config.format[self.name] == "caliper":
             self.gf = ht.GraphFrame.from_caliper(data_path)
         elif self.config.format[self.name] == "caliper_json":
-            self.gf = ht.GraphFrame.from_caliper(data_path, query='')
+            self.gf = ht.GraphFrame.from_caliper(data_path, query="")
         elif self.config.format[self.name] == "gprof":
             self.gf = ht.GraphFrame.from_grof_dot(data_path)
         elif self.config.format[self.name] == "literal":

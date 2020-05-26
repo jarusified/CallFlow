@@ -1,7 +1,8 @@
 import numpy as np
 import networkx as nx
-from utils.logger import log
-from ast import literal_eval as make_list\
+from ..utils.logger import log
+from ast import literal_eval as make_list
+
 
 class FilterNetworkX:
     def __init__(self, state):
@@ -50,7 +51,7 @@ class FilterNetworkX:
     def filter_df_by_time(self, perc):
         log.debug(f"[Filter] By Exclusive time : {perc}")
         # df = self.df.loc[self.df['time'] > perc * 0.01 * self.max_time_exc]
-        df = self.df.loc[self.df['time'] > perc]
+        df = self.df.loc[self.df["time"] > perc]
         filter_call_sites = df["name"].unique()
         print(filter_call_sites)
         return df[df["name"].isin(filter_call_sites)]
@@ -62,7 +63,7 @@ class FilterNetworkX:
 
         for edge in g.edges():
             # If source is present in the callsites list
-            if(edge[0] in callsites and edge[1] in callsites):
+            if edge[0] in callsites and edge[1] in callsites:
                 ret.add_edge(edge[0], edge[1])
             else:
                 log.info(f"Removing the edge: {edge}")
@@ -70,7 +71,7 @@ class FilterNetworkX:
         return ret
 
     # Refer https://stackoverflow.com/questions/28095646/finding-all-paths-walks-of-given-length-in-a-networkx-graph
-    def findPaths(self, g, u, n,excludeSet = None):
+    def findPaths(self, g, u, n, excludeSet=None):
         if excludeSet == None:
             excludeSet = set([u])
         else:
@@ -82,7 +83,12 @@ class FilterNetworkX:
         for neighbor in g.neighbors(u):
             print(neighbor)
         # print("neighbors: ", g.neighbors(u))
-        paths = [[].append(path) for neighbor in g.neighbors(u) if neighbor not in excludeSet for path in self.findPaths(g, neighbor, n-1, excludeSet)]
+        paths = [
+            [].append(path)
+            for neighbor in g.neighbors(u)
+            if neighbor not in excludeSet
+            for path in self.findPaths(g, neighbor, n - 1, excludeSet)
+        ]
         excludeSet.remove(u)
         return paths
 
@@ -92,11 +98,9 @@ class FilterNetworkX:
         ret = nx.DiGraph()
 
         for callsite in callsites:
-            path = df.loc[df['name'] == callsite]['path'].tolist()[0]
+            path = df.loc[df["name"] == callsite]["path"].tolist()[0]
             path = make_list(path)
             # print(self.findPaths(g, callsite, 10))
             ret.add_path(path)
 
         return ret
-
-

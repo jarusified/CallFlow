@@ -15,9 +15,10 @@ from functools import wraps
 
 import numpy as np
 from scipy.stats import kurtosis, skew
-from utils.df import sanitizeName, visModuleCallsiteName
-from utils.hatchet import getNodeDictFromFrame, getPathListFromFrames
-from utils.logger import log
+
+from ..utils.df import sanitizeName, visModuleCallsiteName
+from ..utils.hatchet import getNodeDictFromFrame, getPathListFromFrames
+from ..utils.logger import log
 
 
 def logger(func):

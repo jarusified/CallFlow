@@ -12,11 +12,10 @@ from .hatchet_to_networkx import HatchetToNetworkX
 from .union_graph import UnionGraph
 from .deltacon_similarity import Similarity
 from .process import PreProcess
-from ensemble.actions.auxiliary import Auxiliary
+from ..ensemble.actions.auxiliary import Auxiliary
 
-from utils.logger import log
-from pipeline.state import State
-import utils
+from ..utils.logger import log
+from .state import State
 
 
 class Pipeline:
