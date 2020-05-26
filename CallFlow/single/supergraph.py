@@ -216,7 +216,6 @@ class SuperGraph(nx.Graph):
 
     def dataset_map(self, nodes, dataset):
         ret = {}
-        print(f"Nodes: {self.g.nodes()}")
         for node in self.g.nodes():
             if "=" in node:
                 node_name = node.split("=")[1]

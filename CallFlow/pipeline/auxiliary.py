@@ -47,10 +47,6 @@ class Auxiliary:
         self.props = ["rank", "name", "dataset", "all_ranks"]
         self.filter = True
 
-        # self.result = self.run()
-
-        print(self.timer)
-
     def filter_dict(self, result):
         ret = {}
 
@@ -469,7 +465,9 @@ class Auxiliary:
         )
 
         if self.process:
-            print("Calculating Gradients, Mean runtime variations, and Distribution.")
+            log.info(
+                "Calculating Gradients, Mean runtime variations, and Distribution."
+            )
             with self.timer.phase("Process data"):
                 self.group_frames()
             with self.timer.phase("Collect Callsite data"):
@@ -485,6 +483,6 @@ class Auxiliary:
                     with open(path, "w") as f:
                         json.dump(ret, f)
 
-            print(self.timer)
+            log.debug(self.timer)
 
         return ret

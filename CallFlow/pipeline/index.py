@@ -81,8 +81,6 @@ class Pipeline:
         state.graph = preprocess.graph
 
         self.entire_df = state.df
-        log.debug(f'Module: {self.entire_df["module"].unique()}')
-
         return state
 
     # Converts a hatchet graph to networkX graph.
