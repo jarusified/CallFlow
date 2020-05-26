@@ -114,8 +114,8 @@ export default {
 		initLoad: true,
 		comparisonMode: false,
 		selectedCompareDataset: null,
-		compareModes: ['Mean Differences', 'Rank-wise Differences'],
-		selectedCompareMode: 'Mean Differences',
+		compareModes: ['mean-diff', 'rank-diff'],
+		selectedCompareMode: 'mean-diff',
 		selectedOutlierBand: 4,
 		defaultCallSite: '<program root>',
 		modes: ['Ensemble', 'Single'],
@@ -357,6 +357,7 @@ export default {
 			this.selectedCaseStudy = data['runName']
 			this.$store.comparisonMode = this.comparisonMode
 			this.$store.fontSize = 14
+			this.$store.transitionDuration = 1000
 		},
 
 		setOtherData() {
@@ -739,12 +740,6 @@ export default {
 			this.init()
 		},
 
-		// updateBinCount() {
-		// 	this.$store.selectedMPIBinCount = this.selectedMPIBinCount
-		// 	this.clearLocal()
-		// 	this.init()
-		// },
-
 		updateFunctionsInCCT() {
 			this.$socket.emit('cct', {
 				dataset: this.$store.selectedTargetDataset,
@@ -765,7 +760,6 @@ export default {
 
 		updateCompareDataset() {
 			this.summaryChip = 'Diff SuperGraph'
-			console.log("here")
 			this.$store.selectedCompareDataset = this.selectedCompareDataset
 			this.$store.compareAnalysisMode = true
 			this.$socket.emit('compare', {

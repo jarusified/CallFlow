@@ -8,19 +8,22 @@ export default {
 
     data: () => ({
         strokeWidth: 7,
-        id: 'mean-gradients'
+        id: 'mean-gradients',
+        meanDiff: {}
     }),
 
     methods: {
-        init(nodes, svg) {
+        init(nodes, containerG, data) {
             this.nodes = nodes
+            this.containerG = containerG
+            this.data = data
 
-            this.process(data)
-            this.gradients()
+            this.process()
+            this.colorScale()
             this.visualize()
         },
 
-        process(data) {
+        process() {
             this.renderZeroLine = {}
 
             this.rank_min = 0
@@ -30,144 +33,63 @@ export default {
             this.mean_diff_min = 0
             this.mean_diff_max = 0
 
-            for (let i = 0; i < data.length; i += 1) {
+            for (let i = 0; i < this.data.length; i += 1) {
                 if (this.$store.selectedMetric == 'Inclusive') {
-                    this.rank_min = Math.min(this.rank_min, data[i]['hist']['y_min'])
-                    this.rank_max = Math.max(this.rank_max, data[i]['hist']['y_max'])
-                    this.mean_min = Math.min(this.mean_min, data[i]['hist']['x_min'])
-                    this.mean_max = Math.max(this.mean_max, data[i]['hist']['x_max'])
-                    this.mean_diff_min = Math.min(this.mean_diff_min, data[i]['mean_diff'])
-                    this.mean_diff_max = Math.max(this.mean_diff_max, data[i]['mean_diff'])
+                    this.rank_min = Math.min(this.rank_min, this.data[i]['hist']['y_min'])
+                    this.rank_max = Math.max(this.rank_max, this.data[i]['hist']['y_max'])
+                    this.mean_min = Math.min(this.mean_min, this.data[i]['hist']['x_min'])
+                    this.mean_max = Math.max(this.mean_max, this.data[i]['hist']['x_max'])
+                    this.mean_diff_min = Math.min(this.mean_diff_min, this.data[i]['mean_diff'])
+                    this.mean_diff_max = Math.max(this.mean_diff_max, this.data[i]['mean_diff'])
                 }
                 else if (this.$store.selectedMetric == 'Exclusive') {
-                    this.rank_min = Math.min(this.rank_min, data[i]['hist']['y_min'])
-                    this.rank_max = Math.max(this.rank_max, data[i]['hist']['y_max'])
-                    this.mean_min = Math.min(this.mean_min, data[i]['hist']['x_min'])
-                    this.mean_max = Math.max(this.mean_max, data[i]['hist']['x_max'])
-                    this.mean_diff_min = Math.min(this.mean_diff_min, data[i]['mean_diff'])
-                    this.mean_diff_max = Math.max(this.mean_diff_max, data[i]['mean_diff'])
+                    this.rank_min = Math.min(this.rank_min, this.data[i]['hist']['y_min'])
+                    this.rank_max = Math.max(this.rank_max, this.data[i]['hist']['y_max'])
+                    this.mean_min = Math.min(this.mean_min, this.data[i]['hist']['x_min'])
+                    this.mean_max = Math.max(this.mean_max, this.data[i]['hist']['x_max'])
+                    this.mean_diff_min = Math.min(this.mean_diff_min, this.data[i]['mean_diff'])
+                    this.mean_diff_max = Math.max(this.mean_diff_max, this.data[i]['mean_diff'])
                 }
             }
 
-
-        },
-
-        colorScale() {
-            let max_diff = Math.max(Math.abs(this.mean_diff_min), Math.abs(this.mean_diff_max))
-
-            this.$store.meanDiffColor.setColorScale(this.mean_diff_min, this.mean_diff_max, this.$store.selectedDistributionColorMap, this.$store.selectedColorPoint)
-            this.$parent.$refs.EnsembleColorMap.updateWithMinMax('meanDiff', this.mean_diff_min, this.mean_diff_max)
-
-            this.meanDiffRectangle(data)
-        },
-
-        visualize(diff) {
-            let self = this
-            let mean_diff = {}
             let max_diff = 0
             let min_diff = 0
-            for (let i = 0; i < diff.length; i += 1) {
-                let d = diff[i]['mean_diff']
-                let callsite = diff[i]['name']
-                mean_diff[callsite] = d
+            for (let i = 0; i < this.data.length; i += 1) {
+                let d = this.data[i]['mean_diff']
+                let callsite = this.data[i]['name']
+                this.meanDiff[callsite] = d
                 max_diff = Math.max(d, max_diff)
                 min_diff = Math.min(d, min_diff)
             }
+        },
+
+        colorScale() {
+            this.$store.meanDiffColor.setColorScale(this.mean_diff_min, this.mean_diff_max, this.$store.selectedDistributionColorMap, this.$store.selectedColorPoint)
+            this.$parent.$parent.$refs.EnsembleColorMap.updateWithMinMax('meanDiff', this.mean_diff_min, this.mean_diff_max)
+        },
+
+        visualize() {
+            let rectangles = this.containerG.selectAll('rect')
+                .data(this.nodes)
 
             // Transition
-            this.nodes.selectAll('.callsite-rect')
-                .data(this.graph.nodes)
+            rectangles
                 .transition()
-                .duration(this.transitionDuration)
+                .duration(this.$store.transitionDuration)
                 .attrs({
                     'opacity': d => {
                         return 1;
                     },
                     'height': d => {
-                        if (d.id == "LeapFrog") {
-                            return 352.328692
-                        }
-                        else {
-                            return d.height;
-                        }
+                        return d.height;
                     },
                 })
                 .style('stroke', (d) => {
                     return 1;
                 })
                 .style("fill", (d, i) => {
-                    let color = d3.rgb(this.$store.meanDiffColor.getColorByValue((mean_diff[d.module])))
+                    let color = d3.rgb(this.$store.meanDiffColor.getColorByValue((this.meanDiff[d.module])))
                     return color
-                })
-        },
-
-        visualize() {
-            this.svg.selectAll('rect')
-                .data(this.nodes)
-                .transition()
-                .duration(this.transitionDuration)
-                .attrs({
-                    'opacity': d => {
-                        if (d.type == "intermediate") {
-                            return 0.0
-                        }
-                        else {
-                            return 1.0;
-                        }
-                    },
-
-                })
-                .style('stroke', (d) => {
-                    let runtimeColor = ''
-                    if (d.type == "intermediate") {
-                        runtimeColor = this.$store.color.ensemble
-                    }
-                    else if (d.type == 'component-node') {
-                        if (this.$store.callsites[this.$store.selectedTargetDataset][d.id] != undefined) {
-                            runtimeColor = d3.rgb(this.$store.color.getColor(d));
-                        }
-                        else {
-                            runtimeColor = this.$store.color.ensemble
-                        }
-                    }
-                    else if (d.type == 'super-node') {
-                        if (this.$store.modules[this.$store.selectedTargetDataset][d.id] != undefined) {
-                            runtimeColor = d3.rgb(this.$store.color.getColor(d));
-                        }
-                        else {
-                            runtimeColor = this.$store.color.ensemble
-                        }
-                    }
-                    return runtimeColor
-                })
-                .style('stroke-width', (d) => {
-                    if (d.type == "intermediate") {
-                        return 1
-                    }
-                    else {
-                        return this.stroke_width;
-                    }
-                })
-                .style("fill", (d, i) => {
-                    if (d.type == "intermediate") {
-                        return this.$store.color.target
-                    }
-                    else if (d.type == 'super-node') {
-                        if (this.$store.modules[this.$store.selectedTargetDataset][d.id] == undefined) {
-                            return this.intermediateColor
-                        }
-                        else {
-                            return "url(#mean-gradient" + d.client_idx + ")"
-                        }
-                    }
-                    else if (d.type == 'component-node') {
-                        if (this.$store.callsites[this.$store.selectedTargetDataset][d.name] == undefined) {
-                            return this.intermediateColor
-                        }
-                        else {
-                            return "url(#mean-gradient" + d.client_idx + ")"
-                        }
-                    }
                 })
         },
 

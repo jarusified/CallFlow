@@ -89,7 +89,7 @@ export default {
             // Update the current rectangles.
             rectangles
                 .transition()
-                .duration(1000)
+                .duration(this.$store.transitionDuration)
                 .attrs({
                     'opacity': d => {
                         if (d.type == "intermediate") {

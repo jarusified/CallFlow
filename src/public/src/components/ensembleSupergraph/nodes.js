@@ -6,6 +6,8 @@ import MeanGradients from './nodes/meanGradients'
 import Guides from './nodes/guides'
 import TargetLine from './nodes/targetLine'
 import ToolTip from './nodes/tooltip'
+import MeanDiff from './nodes/meanDiff'
+import RankDiff from './nodes/rankDiff'
 
 export default {
     template: tpl,
@@ -14,7 +16,9 @@ export default {
         ToolTip,
         MeanGradients,
         Guides,
-        TargetLine
+        TargetLine,
+        MeanDiff,
+        RankDiff
     },
     data: () => ({
         currentNodeLevel: {},
@@ -53,10 +57,10 @@ export default {
             d3.selectAll('.dist-colormap').remove()
 
             if (this.$store.selectedCompareMode == 'rank-diff') {
-                this.$refs.RankDiff.init(data)
+                this.$refs.RankDiff.init(this.graph.nodes, this.containerG, data)
             }
             else if (this.$store.selectedCompareMode == 'mean-diff') {
-                this.$refs.MeanDiff.init(data)
+                this.$refs.MeanDiff.init(this.graph.nodes, this.containerG, data)
             }
 
         }
