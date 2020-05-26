@@ -62,7 +62,6 @@ class SingleCallFlow:
             log.info("#########################################")
 
             stage1 = time.perf_counter()
-
             state = self.pipeline.create_gf(dataset_name)
             stage2 = time.perf_counter()
             log.debug(f"Create GraphFrame: {stage2 - stage1}")
