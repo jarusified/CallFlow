@@ -22,3 +22,4 @@ config_files*
 .pytest_cache
 
 *.egg-info
+build/*
