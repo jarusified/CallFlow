@@ -14,29 +14,31 @@ import time
 import json
 import pandas as pd
 
-from pipeline.state import State
-from pipeline.index import Pipeline
-import pandas as pd
+from CallFlow.pipeline import State, Pipeline
 
-from utils.logger import log
-from utils.timer import Timer
-from utils.df import getMaxExcTime, getMinExcTime, getMaxIncTime, getMinIncTime
+from CallFlow.utils import (
+    log,
+    Timer,
+    getMaxExcTime,
+    getMinExcTime,
+    getMaxIncTime,
+    getMinIncTime,
+)
 
-from ensemble.cct import CCT
-from ensemble.supergraph import SuperGraph
-from ensemble.actions.module_hierarchy import ModuleHierarchy
-from ensemble.actions.union_graph import UnionGraph
-from ensemble.actions.gradients import KDE_gradients
-from ensemble.actions.similarity import Similarity
-from ensemble.actions.parameter_projection import ParameterProjection
-from ensemble.actions.histogram import Histogram
-from ensemble.actions.auxiliary import Auxiliary
-from ensemble.actions.compare import Compare
-from ensemble.actions.split_callee import SplitCallee
-from ensemble.actions.split_caller import SplitCaller
-
-# from ensemble.actions.split_rank import SplitRank
-# from ensemble.actions.split_level import SplitLevel
+from CallFlow.ensemble import (
+    EnsembleCCT,
+    EnsembleSuperGraph,
+    ModuleHierarchy,
+    UnionGraph,
+    KDE_gradients,
+    Similarity,
+    ParameterProjection,
+    Histogram,
+    Auxiliary,
+    Compare,
+    SplitCallee,
+    SplitCaller,
+)
 
 
 # Create states for each dataset.
@@ -221,7 +223,7 @@ class EnsembleCallFlow:
             return self.config
 
         elif action_name == "ensemble_cct":
-            nx = CCT(
+            nx = EnsembleCCT(
                 self.states["ensemble_entire"], action["functionsInCCT"], self.config
             )
             return nx.g
@@ -242,7 +244,7 @@ class EnsembleCallFlow:
             else:
                 split_callee_module = ""
 
-            self.states["ensemble_group"].g = SuperGraph(
+            self.states["ensemble_group"].g = EnsembleSuperGraph(
                 self.states,
                 "group_path",
                 construct_graph=True,

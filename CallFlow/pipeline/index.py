@@ -12,7 +12,7 @@ from .hatchet_to_networkx import HatchetToNetworkX
 from .union_graph import UnionGraph
 from .deltacon_similarity import Similarity
 from .process import PreProcess
-from ..ensemble.actions.auxiliary import Auxiliary
+from .auxiliary import Auxiliary
 
 from ..utils.logger import log
 from .state import State

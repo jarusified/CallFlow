@@ -14,14 +14,12 @@ import json
 import networkx as nx
 from ast import literal_eval as make_tuple
 import numpy as np
-from utils.timer import Timer
+from CallFlow.utils import Timer
 import os
 
 
 class Auxiliary:
-    def __init__(
-        self, state, binCount="20", dataset="", config={}, process=True
-    ):
+    def __init__(self, state, binCount="20", dataset="", config={}, process=True):
         self.graph = state.g
         self.df = state.df
         self.config = config
@@ -134,18 +132,18 @@ class Auxiliary:
         # print(result)
         return result
 
-     # # Callsite grouped information
+    # # Callsite grouped information
     def callsite_data(self):
-        data_type = 'callsite'
+        data_type = "callsite"
         ret = {}
         ## Ensemble data.
         # Group callsite by the name
-        name_grouped = self.df.groupby(['name'])
+        name_grouped = self.df.groupby(["name"])
 
         # Create the data dict.
         ensemble = {}
         for name, group_df in name_grouped:
-            name_df = self.df.loc[self.df['name'] == name ]
+            name_df = self.df.loc[self.df["name"] == name]
             ensemble[name] = self.pack_json(name_df, name, data_type)
 
         ret[self.dataset] = ensemble
@@ -153,13 +151,13 @@ class Auxiliary:
         return ret
 
     def module_data(self):
-        data_type = 'module'
+        data_type = "module"
         ret = {}
         # Module grouped information
-        modules = self.df['module'].unique()
+        modules = self.df["module"].unique()
         ensemble = {}
         for module in modules:
-            module_df = self.df[self.df['module'] == module]
+            module_df = self.df[self.df["module"] == module]
             ensemble[module] = self.pack_json(module_df, module, data_type)
 
         ret[self.dataset] = ensemble
@@ -168,24 +166,28 @@ class Auxiliary:
 
     def run(self):
         ret = {}
-        path = self.config.processed_path + f'/{self.config.runName}' + f'/{self.dataset}/all_data.json'
+        path = (
+            self.config.processed_path
+            + f"/{self.config.runName}"
+            + f"/{self.dataset}/all_data.json"
+        )
 
         # self.process = True
         if os.path.exists(path) and not self.process:
             print(f"[Callsite info] Reading the data from file {path}")
-            with open(path, 'r') as f:
+            with open(path, "r") as f:
                 ret = json.load(f)
         else:
             print("Processing the data again.")
             # with self.timer.phase("Pack Callsite data"):
-            ret['callsite'] = self.callsite_data()
+            ret["callsite"] = self.callsite_data()
             # with self.timer.phase("Pack Module data"):
-            ret['module'] = self.module_data()
+            ret["module"] = self.module_data()
             with self.timer.phase("Module callsite map data"):
-                ret['moduleCallsiteMap'] = self.get_module_callsite_map()
+                ret["moduleCallsiteMap"] = self.get_module_callsite_map()
             # with self.timer.phase("Callsite module map data"):
             #     ret['callsiteModuleMap'] = self.get_callsite_module_map()
             with self.timer.phase("Writing data"):
-                with open(path, 'w') as f:
+                with open(path, "w") as f:
                     json.dump(ret, f)
         return ret

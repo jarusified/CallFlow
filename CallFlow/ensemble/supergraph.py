@@ -1,14 +1,13 @@
 import networkx as nx
-from utils.logger import log
-import math, json, utils
-from ast import literal_eval as make_tuple
 import numpy as np
-from utils.timer import Timer
-from ast import literal_eval as make_list
 import pandas as pd
+import math, json
+from ast import literal_eval as make_list
+
+from CallFlow.utils import Timer, log
 
 
-class SuperGraph(nx.Graph):
+class EnsembleSuperGraph(nx.Graph):
     # Attributes:
     # 1. State => Pass the state which needs to be handled.
     # 2. path => '', 'path', 'group_path' or 'component_path'
@@ -25,7 +24,7 @@ class SuperGraph(nx.Graph):
         split_entry_module="",
         split_callee_module="",
     ):
-        super(SuperGraph, self).__init__()
+        super(EnsembleSuperGraph, self).__init__()
         self.states = states
         self.timer = Timer()
 
@@ -162,7 +161,7 @@ class SuperGraph(nx.Graph):
 
         if isinstance(path, float):
             return []
-        path = make_tuple(path)
+        path = make_list(path)
         for idx, elem in enumerate(path):
             callsite = elem.split("=")[1]
             module = elem.split("=")[0]

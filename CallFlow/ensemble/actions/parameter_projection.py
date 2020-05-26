@@ -20,7 +20,7 @@ from sklearn.preprocessing import scale
 from .similarity import Similarity
 from sklearn import preprocessing
 from sklearn.cluster import KMeans
-from algorithm.k_medoids import KMedoids
+from CallFlow.algorithm import KMedoids
 
 
 class ParameterProjection:

@@ -13,20 +13,26 @@
 import time
 import json
 
-from pipeline.state import State
-from pipeline.index import Pipeline
+from CallFlow.pipeline import State, Pipeline
 
-from utils.logger import log
-from utils.timer import Timer
-from utils.df import getMaxExcTime, getMinExcTime, getMaxIncTime, getMinIncTime
+from CallFlow.utils import (
+    getMaxExcTime,
+    getMinExcTime,
+    getMaxIncTime,
+    getMinIncTime,
+    log,
+    Timer,
+)
 
-from single.cct import singleCCT
-from single.supergraph import SuperGraph
-from single.actions.auxiliary import Auxiliary
-from single.actions.mini_histogram import MiniHistogram
-from single.actions.histogram import Histogram
-from single.actions.scatterplot import Scatterplot
-from single.actions.function_list import FunctionList
+from CallFlow.single import (
+    SingleCCT,
+    SuperGraph,
+    Auxiliary,
+    MiniHistogram,
+    Histogram,
+    Scatterplot,
+    FunctionList,
+)
 
 
 class SingleCallFlow:

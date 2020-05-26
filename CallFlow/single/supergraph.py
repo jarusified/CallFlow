@@ -11,18 +11,25 @@
 ##############################################################################
 
 import sys
-sys.path.append('/home/vidi/Work/llnl/CallFlow/src/server')
+
+sys.path.append("/home/vidi/Work/llnl/CallFlow/src/server")
 import networkx as nx
 import math
 import json
 from ast import literal_eval as make_tuple
-from utils.logger import log
-from utils.timer import Timer
+from CallFlow.utils import log, Timer
 
 
 class SuperGraph(nx.Graph):
     def __init__(
-        self, states, dataset, path, group_by_attr="module", construct_graph=True, add_data=True, debug=True
+        self,
+        states,
+        dataset,
+        path,
+        group_by_attr="module",
+        construct_graph=True,
+        add_data=True,
+        debug=True,
     ):
         super(SuperGraph, self).__init__()
         self.state = states[dataset]
@@ -56,20 +63,19 @@ class SuperGraph(nx.Graph):
             else:
                 print("Using the existing graph from state {0}".format(self.state.name))
 
-        if(debug):
-            log.warn('Modules: {0}'.format(self.df['module'].unique()))
-            log.warn('Top 10 Inclusive time: ')
+        if debug:
+            log.warn("Modules: {0}".format(self.df["module"].unique()))
+            log.warn("Top 10 Inclusive time: ")
             top = 10
-            rank_df = self.df.groupby(['name', 'nid']).mean()
-            top_inclusive_df = rank_df.nlargest(top, 'time (inc)', keep="first")
+            rank_df = self.df.groupby(["name", "nid"]).mean()
+            top_inclusive_df = rank_df.nlargest(top, "time (inc)", keep="first")
             for name, row in top_inclusive_df.iterrows():
-                log.info('{0} [{1}]'.format(name, row["time (inc)"]))
+                log.info("{0} [{1}]".format(name, row["time (inc)"]))
 
-            log.warn('Top 10 Enclusive time: ')
-            top_exclusive_df = rank_df.nlargest(top, 'time', keep="first")
+            log.warn("Top 10 Enclusive time: ")
+            top_exclusive_df = rank_df.nlargest(top, "time", keep="first")
             for name, row in top_exclusive_df.iterrows():
-                log.info('{0} [{1}]'.format(name, row["time"]))
-
+                log.info("{0} [{1}]".format(name, row["time"]))
 
             for node in self.g.nodes(data=True):
                 log.info("Node: {0}".format(node))
@@ -98,9 +104,9 @@ class SuperGraph(nx.Graph):
         ret = []
         moduleMapper = {}
         for idx, elem in enumerate(path):
-            call_site = elem.split('=')[1]
-            module = self.df.loc[self.df.name == call_site]['module'].tolist()[0]
-            if (module not in moduleMapper and elem in self.mapper):
+            call_site = elem.split("=")[1]
+            module = self.df.loc[self.df.name == call_site]["module"].tolist()[0]
+            if module not in moduleMapper and elem in self.mapper:
                 self.mapper[elem] += 1
                 moduleMapper[module] = True
                 ret.append(elem)
@@ -115,19 +121,23 @@ class SuperGraph(nx.Graph):
         # paths = path_df.drop_duplicates().tolist()
         paths = self.df[path].unique()
         for idx, path_str in enumerate(paths):
-            if(not  isinstance(path_str, float)):
+            if not isinstance(path_str, float):
                 path_tuple = make_tuple(path_str)
-                if(len(path_tuple) >= 2):
-                    source_module = path_tuple[-2].split('=')[0]
-                    target_module = path_tuple[-1].split('=')[0]
+                if len(path_tuple) >= 2:
+                    source_module = path_tuple[-2].split("=")[0]
+                    target_module = path_tuple[-1].split("=")[0]
                     print(source_module, target_module)
 
-                    source_name = path_tuple[-2].split('=')[1]
-                    target_name = path_tuple[-1].split('=')[1]
-                    self.g.add_edge(source_module, target_module, attr_dict={
-                        "source_callsite": source_name,
-                        "target_callsite": target_name
-                    })
+                    source_name = path_tuple[-2].split("=")[1]
+                    target_name = path_tuple[-1].split("=")[1]
+                    self.g.add_edge(
+                        source_module,
+                        target_module,
+                        attr_dict={
+                            "source_callsite": source_name,
+                            "target_callsite": target_name,
+                        },
+                    )
 
     def add_callback_paths(self):
         for from_module, to_modules in self.callbacks.items():
@@ -137,7 +147,9 @@ class SuperGraph(nx.Graph):
     def add_node_attributes(self):
         dataset_mapping = {}
         dataset_mapping[self.dataset] = self.dataset_map(self.g.nodes(), self.dataset)
-        nx.set_node_attributes(self.g, name=self.dataset, values=dataset_mapping[self.dataset])
+        nx.set_node_attributes(
+            self.g, name=self.dataset, values=dataset_mapping[self.dataset]
+        )
 
     def add_edge_attributes(self):
         capacity_mapping = self.calculate_flows(self.g)
@@ -151,8 +163,8 @@ class SuperGraph(nx.Graph):
         for edge in graph.edges(data=True):
             source_module = edge[0]
             target_module = edge[1]
-            source_name = edge[2]['attr_dict']['source_callsite']
-            target_name = edge[2]['attr_dict']['target_callsite']
+            source_name = edge[2]["attr_dict"]["source_callsite"]
+            target_name = edge[2]["attr_dict"]["target_callsite"]
 
             source_exc = self.df.loc[(self.df["name"] == source_name)]["time"].max()
             target_exc = self.df.loc[(self.df["name"] == target_name)]["time"].max()
@@ -171,8 +183,8 @@ class SuperGraph(nx.Graph):
         for edge in graph.edges(data=True):
             source_module = edge[0]
             target_module = edge[1]
-            source_name = edge[2]['attr_dict']['source_callsite']
-            target_name = edge[2]['attr_dict']['target_callsite']
+            source_name = edge[2]["attr_dict"]["source_callsite"]
+            target_name = edge[2]["attr_dict"]["target_callsite"]
 
             source_inc = self.df.loc[(self.df["name"] == source_name)][
                 "time (inc)"
@@ -237,10 +249,7 @@ class SuperGraph(nx.Graph):
                     else:
                         ret[node][column] = []
 
-                elif (
-                    column == "module"
-                    or column == "show_node"
-                ):
+                elif column == "module" or column == "show_node":
                     if len(column_data.value_counts()) > 0:
                         ret[node][column] = column_data.tolist()[0]
 

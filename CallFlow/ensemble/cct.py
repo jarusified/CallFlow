@@ -14,52 +14,109 @@ import pandas as pd
 import networkx as nx
 from ast import literal_eval as make_tuple
 import math
-from utils.timer import Timer
-from utils.df import sanitizeName
+from CallFlow.utils import Timer, sanitizeName
 
 
-class singleCCT:
+class EnsembleCCT:
     def __init__(self, state, functionsInCCT, config):
         self.timer = Timer()
-
-        self.g = state.g
-        self.df = state.df
-        self.functionsInCCT = int(functionsInCCT)
         self.config = config
+        number_of_nodes = len(state.df["name"].unique())
+        self.functionsInCCT = int(functionsInCCT)
 
+        self.entire_graph = state.g
+        self.entire_df = state.df
+
+        self.runs = self.entire_df["dataset"].unique()
         self.columns = ["time (inc)", "time", "name", "module"]
         # 'imbalance_perc']
 
         self.sort_attr = "time"
-
-        print(f"Total callsite in CCT: {len(self.df['name'].unique())}")
-
-        with self.timer.phase("Creating data maps"):
-            self.create_ensemble_maps()
-
         self.callsites = self.get_top_n_callsites_by(self.functionsInCCT)
-        self.fdf = self.df[self.df["name"].isin(self.callsites)]
 
-        self.dataset = self.fdf["dataset"].unique()
-        with self.timer.phase(f"Creating the single CCT {self.dataset}"):
-            self.run()
+        self.fdf = self.entire_df[self.entire_df["name"].isin(self.callsites)]
+
+        self.datasets = self.fdf["dataset"].unique()
+        with self.timer.phase(f"Creating the ensemble CCT: {self.datasets}"):
+            self.g = nx.DiGraph()
+            self.add_paths("path")
+
+        with self.timer.phase(f"Creating the data maps."):
+            self.cct_df = self.entire_df[self.entire_df["name"].isin(self.g.nodes())]
+            self.create_ensemble_maps(self.cct_df)
+            self.create_target_maps(self.cct_df)
+
+        with self.timer.phase(f"Add node and edge attributes."):
+            self.add_node_attributes()
+            self.add_edge_attributes()
+
+        with self.timer.phase(f"Find cycles"):
+            self.g.cycles = self.find_cycle(self.g)
+
         print(self.timer)
 
     def get_top_n_callsites_by(self, count):
-        xgroup_df = self.df.groupby(["name"]).mean()
+        xgroup_df = self.entire_df.groupby(["name"]).mean()
         sort_xgroup_df = xgroup_df.sort_values(by=[self.sort_attr], ascending=False)
-        callsites_df = sort_xgroup_df.nlargest(self.functionsInCCT, self.sort_attr)
+        callsites_df = sort_xgroup_df.nlargest(self.functionsInCCT, "time (inc)")
 
         return callsites_df.index.values.tolist()
 
-    def create_ensemble_maps(self):
-        self.modules = self.df["module"].unique()
+    def create_target_maps(self, df):
+        self.target_df = {}
+        self.target_modules = {}
+        self.target_module_group_df = {}
+        self.target_module_name_group_df = {}
+        self.target_module_callsite_map = {}
+        self.target_module_time_inc_map = {}
+        self.target_module_time_exc_map = {}
+        self.target_name_time_inc_map = {}
+        self.target_name_time_exc_map = {}
 
-        self.module_name_group_df = self.df.groupby(["module", "name"])
-        self.module_group_df = self.df.groupby(["module"])
+        for run in self.runs:
+            # Reduce the entire_df to respective target dfs.
+            self.target_df[run] = df.loc[df["dataset"] == run]
+
+            # Unique modules in the target run
+            self.target_modules[run] = self.target_df[run]["module"].unique()
+
+            # Group the dataframe in two ways.
+            # 1. by module
+            # 2. by module and callsite
+            self.target_module_group_df[run] = self.target_df[run].groupby(["module"])
+            self.target_module_name_group_df[run] = self.target_df[run].groupby(
+                ["name"]
+            )
+
+            # Module map for target run {'module': [Array of callsites]}
+            self.target_module_callsite_map[run] = self.target_module_group_df[run][
+                "name"
+            ].unique()
+
+            # Inclusive time maps for the module level and callsite level.
+            self.target_module_time_inc_map[run] = (
+                self.target_module_group_df[run]["time (inc)"].max().to_dict()
+            )
+            self.target_name_time_inc_map[run] = (
+                self.target_module_name_group_df[run]["time (inc)"].max().to_dict()
+            )
+
+            # Exclusive time maps for the module level and callsite level.
+            self.target_module_time_exc_map[run] = (
+                self.target_module_group_df[run]["time"].max().to_dict()
+            )
+            self.target_name_time_exc_map[run] = (
+                self.target_module_name_group_df[run]["time"].max().to_dict()
+            )
+
+    def create_ensemble_maps(self, df):
+        self.modules = df["module"].unique()
+
+        self.module_name_group_df = df.groupby(["module", "name"])
+        self.module_group_df = df.groupby(["module"])
 
         # Module map for ensemble {'module': [Array of callsites]}
-        self.module_callsite_map = self.module_group_df["name"].unique()
+        self.module_callsite_map = df["name"].unique()
 
         # Inclusive time maps for the module level and callsite level.
         self.module_time_inc_map = self.module_group_df["time (inc)"].max().to_dict()
@@ -69,37 +126,76 @@ class singleCCT:
         self.module_time_exc_map = self.module_group_df["time"].max().to_dict()
         self.name_time_exc_map = self.module_name_group_df["time"].max().to_dict()
 
-    def dataset_map(self):
+    def ensemble_map(self, df, nodes):
         ret = {}
+
+        # loop through the nodes
         for callsite in self.g.nodes():
             if callsite not in self.config.callsite_module_map:
-                module = self.df.loc[self.df["name"] == callsite]["module"].unique()[0]
+                module = self.entire_df.loc[self.entire_df["name"] == callsite][
+                    "module"
+                ].unique()[0]
             else:
                 module = self.config.callsite_module_map[callsite]
 
             for column in self.columns:
                 if column not in ret:
                     ret[column] = {}
-
                 if column == "time (inc)":
                     ret[column][callsite] = self.name_time_inc_map[(module, callsite)]
-
                 elif column == "time":
                     ret[column][callsite] = self.name_time_exc_map[(module, callsite)]
-
+                elif column == "name":
+                    ret[column][callsite] = callsite
                 elif column == "module":
                     ret[column][callsite] = module
 
-                elif column == "name":
-                    ret[column][callsite] = callsite
+        return ret
+
+    def dataset_map(self, nodes, run):
+        ret = {}
+        for callsite in self.g.nodes():
+            if callsite not in self.config.callsite_module_map:
+                module = self.entire_df.loc[self.entire_df["name"] == callsite][
+                    "module"
+                ].unique()[0]
+            else:
+                module = self.config.callsite_module_map[callsite]
+
+            if callsite in self.target_module_callsite_map[run].keys():
+                if callsite not in ret:
+                    ret[callsite] = {}
+
+                for column in self.columns:
+                    if column == "time (inc)":
+                        ret[callsite][column] = self.target_module_time_inc_map[run][
+                            module
+                        ]
+
+                    elif column == "time":
+                        ret[callsite][column] = self.target_module_time_exc_map[run][
+                            module
+                        ]
+
+                    elif column == "module":
+                        ret[callsite][column] = module
+
+                    elif column == "name":
+                        ret[callsite][column] = callsite
 
         return ret
 
     def add_node_attributes(self):
-        dataset_mapping = self.dataset_map()
+        ensemble_mapping = self.ensemble_map(self.entire_df, self.g.nodes())
 
-        for idx, key in enumerate(dataset_mapping):
-            nx.set_node_attributes(self.g, name=key, values=dataset_mapping[key])
+        for idx, key in enumerate(ensemble_mapping):
+            nx.set_node_attributes(self.g, name=key, values=ensemble_mapping[key])
+
+        # dataset_mapping = {}
+        # for run in self.runs:
+        #     dataset_mapping[run] = self.dataset_map(self.g.nodes(), run)
+
+        #     nx.set_node_attributes(self.g, name=run, values=dataset_mapping[run])
 
     def add_edge_attributes(self):
         num_of_calls_mapping = self.edge_map(self.g.edges(), "component_path")
@@ -271,10 +367,3 @@ class singleCCT:
             if tail == final_node:
                 break
         return cycle[i:]
-
-    def run(self):
-        self.g = nx.DiGraph()
-        self.add_paths("path")
-        self.add_node_attributes()
-        self.add_edge_attributes()
-        self.g.cycles = self.find_cycle(self.g)

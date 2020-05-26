@@ -10,7 +10,7 @@
 # Please also read the LICENSE file for the MIT License notice.
 ##############################################################################
 import json
-from utils.logger import log
+from CallFlow.utils import log
 import os
 
 
