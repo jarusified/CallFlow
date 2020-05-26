@@ -1,11 +1,10 @@
-import tpl from '../../html/ensembleSupergraph/colormap.html'
 import * as d3 from 'd3'
 import 'd3-selection-multi'
 import * as utils from '../utils'
 import EventHandler from '../EventHandler'
 
 export default {
-    template: tpl,
+    template: '<g :id="id"></g>',
     name: 'EnsembleColorMap',
     components: {},
 

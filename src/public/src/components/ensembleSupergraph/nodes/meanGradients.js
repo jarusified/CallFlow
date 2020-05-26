@@ -1,9 +1,8 @@
-import tpl from '../../../html/ensembleSupergraph/node.html'
 import * as d3 from 'd3'
 import * as utils from '../../utils'
 
 export default {
-    template: tpl,
+    template: '<g :id="id"></g>',
     name: 'MeanGradients',
     components: {},
 

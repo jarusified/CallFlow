@@ -1,9 +1,8 @@
-import tpl from '../../../html/ensembleSupergraph/node.html'
 import * as d3 from 'd3'
 import * as utils from '../../utils'
 
 export default {
-    template: tpl,
+    template: '<g :id="id"></g>',
     name: 'MeanGradients',
     components: {},
 
@@ -49,15 +48,7 @@ export default {
                     this.mean_diff_max = Math.max(this.mean_diff_max, data[i]['mean_diff'])
                 }
             }
-            if (this.$store.selectedCompareMode == 'Rank-wise Differences') {
-                this.$store.rankDiffColor.setColorScale(this.rank_min, this.rank_max, this.$store.selectedDistributionColorMap, this.$store.selectedColorPoint)
-                this.$parent.$refs.EnsembleColorMap.update('rankDiff', data)
-                this.setupDiffRuntimeGradients(data)
-                this.rankDiffRectangle()
-            }
-            else if (this.$store.selectedCompareMode == 'Mean Differences') {
 
-            }
 
         },
 

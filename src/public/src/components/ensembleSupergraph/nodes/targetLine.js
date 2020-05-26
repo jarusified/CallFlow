@@ -1,8 +1,7 @@
-import tpl from '../../../html/ensembleSupergraph/node.html'
 import * as utils from '../../utils'
 
 export default {
-    template: tpl,
+    template: '<g :id="id"></g>',
     name: 'TargetLine',
     components: {},
 
