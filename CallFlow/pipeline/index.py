@@ -19,6 +19,7 @@ from .state import State
 from CallFlow.utils import log
 
 
+
 class Pipeline:
     def __init__(self, config):
         self.config = config
@@ -67,10 +68,12 @@ class Pipeline:
                 .add_time_columns()
                 .add_rank_column()
                 .add_callers_and_callees()
+                # .add_show_node()
                 .add_dataset_name()
                 .add_imbalance_perc()
                 .add_module_name_caliper(self.config.callsite_module_map)
                 .create_name_module_map()
+                # .add_mod_index()
                 .add_vis_node_name()
                 .add_path()
                 .build()
@@ -193,6 +196,7 @@ class Pipeline:
     # Write the ensemble State to the file.
     def write_ensemble_gf(self, states, state_name):
         state = states[state_name]
+                     
         # dump the filtered dataframe to csv.
         df_filepath = self.dirname + "/" + state_name + "_df.csv"
         graph_filepath = self.dirname + "/" + state_name + "_graph.json"

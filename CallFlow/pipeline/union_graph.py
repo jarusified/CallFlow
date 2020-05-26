@@ -7,12 +7,13 @@ class UnionGraph:
         self.runs = {}
         self.diffset = {}
 
+
     # Return the union of graphs G and H.
     def unionize(self, H, name=None, rename=(None, None)):
         if not self.R.is_multigraph() == H.is_multigraph():
             raise nx.NetworkXError("G and H must both be graphs or multigraphs.")
 
-        # add graph attributes from H.
+
         self.R.graph.update(H.graph)
 
         renamed_nodes = self.add_prefix(H, rename[1])
@@ -39,9 +40,6 @@ class UnionGraph:
         # add node attributes for each run
         for n in renamed_nodes:
             self.add_node_attributes(H, n, name)
-
-        print(self.R.nodes(data=True))
-        self.runs[name] = H
 
     # rename graph to obtain disjoint node labels
     def add_prefix(self, graph, prefix):

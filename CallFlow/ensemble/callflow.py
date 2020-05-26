@@ -61,7 +61,7 @@ class EnsembleCallFlow:
         else:
             log.info("[Ensemble] Read Mode.")
             self.states = self.readState()
-
+            
         self.target_df = {}
         for dataset in self.config.dataset_names:
             self.target_df[dataset] = self.states["ensemble_entire"].df.loc[
@@ -88,6 +88,7 @@ class EnsembleCallFlow:
                 states[dataset_name], "entire"
             )
             stage3 = time.perf_counter()
+
             log.debug(f"Preprocess GraphFrame: {stage3 - stage2}")
             log.info("-----------------------------------------")
 
@@ -117,6 +118,7 @@ class EnsembleCallFlow:
         stage7 = time.perf_counter()
         states["ensemble_entire"] = self.pipeline.union(states)
         stage8 = time.perf_counter()
+
         log.debug(f"Union GraphFrame: {stage8 - stage7}")
         log.info("-----------------------------------------")
 
@@ -130,6 +132,7 @@ class EnsembleCallFlow:
             states["ensemble_entire"], self.config.filter_perc
         )
         stage11 = time.perf_counter()
+
         log.debug(f"Filter ensemble graph: {stage11 - stage10}")
         log.info("-----------------------------------------")
 
@@ -142,16 +145,17 @@ class EnsembleCallFlow:
         stage14 = time.perf_counter()
         states["ensemble_group"] = self.pipeline.ensemble_group(states, "module")
         stage15 = time.perf_counter()
+
         log.debug(f"Group ensemble graph: {stage15 - stage14}")
         log.info("-----------------------------------------")
-
         stage16 = time.perf_counter()
         self.pipeline.write_ensemble_gf(states, "ensemble_group")
         stage17 = time.perf_counter()
+
         log.debug(f"Write group ensemble graph: {stage17 - stage16}")
         log.info("-----------------------------------------")
 
-        # Need to remove the dependence on reading the dataframe again.
+    # Need to remove the dependence on reading the dataframe again.
         states = {}
         states["ensemble_entire"] = self.pipeline.read_ensemble_gf("ensemble_entire")
 

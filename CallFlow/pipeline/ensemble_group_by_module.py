@@ -6,6 +6,7 @@ from ast import literal_eval as make_list
 from CallFlow.utils import log
 
 
+
 class ensembleGroupBy:
     def __init__(self, state_entire, state_filter, group_by):
         self.state_filter = state_filter

@@ -37,6 +37,7 @@ class FilterNetworkX:
         log.info(f"Max. time (inc): {self.max_time_inc_list}")
         log.info(f"Min. time (exc): {self.min_time_exc_list}")
         log.info(f"Max. time (exc): {self.max_time_exc_list}")
+
         self.max_time_inc = np.max(self.max_time_inc_list)
         self.min_time_inc = np.min(self.min_time_inc_list)
         self.max_time_exc = np.max(self.max_time_exc_list)

@@ -468,6 +468,7 @@ class Auxiliary:
             log.info(
                 "Calculating Gradients, Mean runtime variations, and Distribution."
             )
+
             with self.timer.phase("Process data"):
                 self.group_frames()
             with self.timer.phase("Collect Callsite data"):
@@ -482,7 +483,7 @@ class Auxiliary:
                 with self.timer.phase("Writing data"):
                     with open(path, "w") as f:
                         json.dump(ret, f)
-
             log.debug(self.timer)
+
 
         return ret

@@ -24,7 +24,6 @@ from CallFlow.utils import (
     log,
 )
 
-
 def logger(func):
     @wraps(func)
     def tmp(*args, **kwargs):
@@ -40,7 +39,7 @@ class PreProcess:
     Builder object
     Preprocess.add_X().add_Y().....
     """
-
+    
     def __init__(self, builder):
         self.gf = builder.gf
         self.df = builder.df
@@ -202,6 +201,7 @@ class PreProcess:
             self.df["show_node"] = self.df["name"].apply(lambda node: True)
             return self
 
+
         # node_name is different from name in dataframe. So creating a copy of it.
         @logger
         def add_vis_node_name(self):
@@ -287,6 +287,7 @@ class PreProcess:
             df_node_count = len(self.df["name"].unique())
             log.debug(
                 f"[Validation] Map contains: {map_node_count} callsites, graph contains: {df_node_count} callsites"
+
             )
             if map_node_count != df_node_count:
                 raise Exception(

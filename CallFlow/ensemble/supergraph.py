@@ -69,6 +69,7 @@ class EnsembleSuperGraph(nx.Graph):
         with self.timer.phase("Construct Graph"):
             if construct_graph:
                 log.info("Creating a SuperGraph for {0}.".format(self.state_group.name))
+
                 self.cct = nx.DiGraph()
                 self.agg_g = nx.DiGraph()
                 self.add_paths(path)

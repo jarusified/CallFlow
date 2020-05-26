@@ -25,6 +25,7 @@ class ConfigFileReader:
         if config_json:
             self.json = config_json
 
+
         self.datasets = self.json["datasets"]
         self.runName = self.json["run_name"]
         self.callflow_path = self.json["callflow_path"]
