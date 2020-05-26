@@ -32,6 +32,7 @@ from CallFlow.ensemble import EnsembleCallFlow
 from CallFlow.pipeline import ConfigFileReader
 from CallFlow.utils import log
 
+
 app = Flask(__name__, static_url_path="/public")
 sockets = SocketIO(app, cors_allowed_origins="*")
 
