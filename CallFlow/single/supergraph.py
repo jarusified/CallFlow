@@ -56,7 +56,7 @@ class SuperGraph(nx.Graph):
 
         with self.timer.phase("Construct Graph"):
             if construct_graph:
-                print("Creating a Graph for {0}.".format(self.state.name))
+                log.info("Creating the SuperGraph for {0}.".format(self.state.name))
                 self.mapper = {}
                 self.g = nx.DiGraph()
                 self.add_paths(path)
@@ -95,8 +95,8 @@ class SuperGraph(nx.Graph):
             if add_data == True:
                 self.add_node_attributes()
                 self.add_edge_attributes()
-            else:
-                print("Creating a Graph without node or edge attributes.")
+            # else:
+            # print("Creating a Graph without node or edge attributes.")
 
         log.info(self.timer)
 

@@ -4,12 +4,6 @@ import networkx as nx
 from ast import literal_eval as make_list
 
 
-class Callsite:
-    def __init__(self, name, module):
-        self.name = name
-        self.module = module
-
-
 class ensembleGroupBy:
     def __init__(self, state_entire, state_filter, group_by):
         self.state_filter = state_filter
