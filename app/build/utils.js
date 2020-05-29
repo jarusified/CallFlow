@@ -6,7 +6,6 @@ const packageConfig = require("../package.json");
 
 exports.assetsPath = function (_path) {
 	const assetsSubDirectory = config.build.assetsSubDirectory;
-	console.log(assetsSubDirectory, _path)
 	return path.posix.join(assetsSubDirectory, _path);
 };
 
