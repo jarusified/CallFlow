@@ -6,6 +6,8 @@
 
 .callflow
 old-code/*
+config_files/*
+data/*
 
 app/node_modules*
 app/dist
