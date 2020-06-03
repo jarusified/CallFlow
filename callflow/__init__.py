@@ -3,4 +3,6 @@
 from .datastructures.graphframe import GraphFrame
 from .utils import *
 from .timer import Timer
-from .logger import Log
+
+#from .logger import Log
+from .logger import init_logger, get_logger
