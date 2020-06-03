@@ -99,11 +99,6 @@ class Pipeline:
     def hatchetToNetworkX(self, state, path):
         convert = HatchetToNetworkX(state, path, construct_graph=True, add_data=False)
 
-        print ('now, here')
-        print('--------', type(convert.nxg))
-        print('--------', convert.nxg)
-        print('--------', convert.nxg.edges())
-
         #state.g = convert.g
         state.new_entire_gf.nxg = convert.nxg
         state.new_gf.nxg = convert.nxg

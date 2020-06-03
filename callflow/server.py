@@ -126,7 +126,7 @@ class CallFlowServer:
                 raise Exception()
 
     def create_dot_callflow_folder(self):
-        LOGGER.debug(f"Create directory.: {self.config.save_path}")
+        LOGGER.info(f"Create directory.: {self.config.save_path}")
         #if self.debug:
         #    self.print(f"Create .callflow directiory.: {self.config.save_path}")
 

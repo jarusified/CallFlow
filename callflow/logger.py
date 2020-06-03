@@ -87,7 +87,7 @@ def init_logger(**kwargs):
     logger.error('Enabled')
     logger.critical('Enabled')
 
-# ------------------------------------------------------------------------------
+# # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 # TODO: this class should be deleted once all code has been ported to new logger
 class Log:
