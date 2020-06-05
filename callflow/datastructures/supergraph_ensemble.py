@@ -10,7 +10,7 @@ LOGGER = callflow.get_logger(__name__)
 from callflow.timer import Timer
 
 
-class EnsembleSuperGraph(nx.Graph):
+class SuperGraph(nx.Graph):
     # Attributes:
     # 1. State => Pass the state which needs to be handled.
     # 2. path => '', 'path', 'group_path' or 'component_path'

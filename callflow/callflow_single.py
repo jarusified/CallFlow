@@ -27,7 +27,7 @@ from callflow.utils import (
     getMinIncTime,
 )
 
-from callflow import CCT, SingleSuperGraph, BaseCallFlow
+from callflow import CCT, SuperGraph, BaseCallFlow
 
 from callflow.modules import (
     SingleAuxiliary,
@@ -84,7 +84,6 @@ class SingleCallFlow(BaseCallFlow):
 
     def _read_states(self):
         datasets = {}
-        print(self.props)
         for idx, dataset in enumerate(self.props["dataset_names"]):
             datasets[dataset] = self.pipeline.read_dataset_gf(dataset)
         return datasets

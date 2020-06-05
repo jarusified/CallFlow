@@ -77,8 +77,8 @@ class BaseCallFlow:
             files = [
                 "entire_df.csv",
                 "filter_df.csv",
-                "entire_graph.json",
-                "filter_graph.json",
+                "entire_nxg.json",
+                "filter_nxg.json",
             ]
             for f in files:
                 fname = os.path.join(dataset_dir, f)

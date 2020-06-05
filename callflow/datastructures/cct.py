@@ -17,14 +17,14 @@ from ast import literal_eval as make_tuple
 from callflow.timer import Timer
 from callflow.utils import sanitizeName
 
-class CCT():
-    def __init__(self, app_state, graph_tag, callsite_count):
+class CCT:
+    def __init__(self, datasets, graph_tag, callsite_count):
 
         self.timer = Timer()
-        self.app_state = app_state
-
+        self.dataset = datasets[graph_tag]
+        
         # Get the current graph and df
-        self.entire_df = app_state.states[graph_tag].new_gf.df
+        self.entire_df = self.dataset.new_gf.df
 
         # Number of runs in the state.
         self.runs = self.entire_df["dataset"].unique()
@@ -47,8 +47,8 @@ class CCT():
 
         with self.timer.phase(f"Creating the data maps."):
             self.cct_df = self.entire_df[self.entire_df["name"].isin(self.g.nodes())]
-            app_state.create_ensemble_maps(self.cct_df)
-            app_state.create_target_maps(self.cct_df)
+            self.dataset.create_ensemble_maps()
+            # self.dataset.create_target_maps()
 
         with self.timer.phase(f"Add node and edge attributes."):
             self.add_node_attributes()
@@ -72,12 +72,12 @@ class CCT():
 
         # loop through the nodes
         for callsite in self.g.nodes():
-            if callsite not in self.app_state.props["callsite_module_map"]:
+            if callsite not in self.dataset.props["callsite_module_map"]:
                 module = self.entire_df.loc[self.entire_df["name"] == callsite][
                     "module"
                 ].unique()[0]
             else:
-                module = self.app_state.props["callsite_module_map"][callsite]
+                module = self.props["callsite_module_map"][callsite]
 
             for column in self.columns:
                 if column not in ret:

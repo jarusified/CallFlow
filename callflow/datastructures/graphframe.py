@@ -32,26 +32,26 @@ class GraphFrame(ht.GraphFrame):
     def from_config(config, name):
 
         LOGGER.info(f"Creating graphframes: {name}")
-        LOGGER.info(f"Data path: {config.data_path}")
+        LOGGER.info(f"Data path: {config['data_path']}")
 
-        if config.format[name] == "hpctoolkit":
-            gf = ht.GraphFrame.from_hpctoolkit(config.data_path)
+        if config["format"][name] == "hpctoolkit":
+            gf = ht.GraphFrame.from_hpctoolkit(config["data_path"])
 
-        elif config.format[name] == "caliper":
-            gf = ht.GraphFrame.from_caliper(config.data_path)
+        elif config["format"][name] == "caliper":
+            gf = ht.GraphFrame.from_caliper(config["data_path"])
 
-        elif config.format[name] == "caliper_json":
-            data_path = os.path.join(config.data_path, config.paths[name])
+        elif config["format"][name] == "caliper_json":
+            data_path = os.path.join(config["data_path"], config["paths"][name])
             gf = ht.GraphFrame.from_caliper(data_path, query="")
 
-        elif config.format[name] == "gprof":
-            gf = ht.GraphFrame.from_grof_dot(config.data_path)
+        elif config["format"][name] == "gprof":
+            gf = ht.GraphFrame.from_grof_dot(config["data_path"])
 
-        elif config.format[name] == "literal":
-            gf = ht.GraphFrame.from_literal(config.data_path)
+        elif config["format"][name] == "literal":
+            gf = ht.GraphFrame.from_literal(config["data_path"])
 
-        elif config.format[name] == "lists":
-            gf = ht.GraphFrame.from_lists(config.data_path)
+        elif config["format"][name] == "lists":
+            gf = ht.GraphFrame.from_lists(config["data_path"])
 
         return GraphFrame.from_hatchet(gf)
 

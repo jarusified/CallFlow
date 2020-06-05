@@ -6,8 +6,8 @@ from .timer import Timer
 from .datastructures.graphframe import GraphFrame
 from .datastructures.dataset import Dataset
 
-from .datastructures.supergraph_ensemble import EnsembleSuperGraph
-from .datastructures.supergraph_single import SingleSuperGraph
+from .datastructures.supergraph_ensemble import SuperGraph
+# from .datastructures.supergraph_single import SingleSuperGraph
 from .datastructures.cct import CCT
 
 
