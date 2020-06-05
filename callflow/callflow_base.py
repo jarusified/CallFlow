@@ -1,51 +1,10 @@
 import os
+import json
 
 import callflow
 
 LOGGER = callflow.get_logger(__name__)
 from callflow.pipeline import Pipeline
-
-
-class AppState:
-    def __init__(self, config):
-        self.config = config
-
-        self.maxIncTime = {}
-        self.maxExcTime = {}
-        self.minIncTime = {}
-        self.minExcTime = {}
-        self.numOfRanks = {}
-
-    def add_target_df(self):
-        self.target_df = {}
-        for dataset in self.config.dataset_names:
-            self.target_df[dataset] = self.states["ensemble_entire"].new_gf.df.loc[
-                self.states["ensemble_entire"].new_gf.df["dataset"] == dataset
-            ]
-
-    def add_basic_info(self):
-        maxIncTime = 0
-        maxExcTime = 0
-        minIncTime = 0
-        minExcTime = 0
-        maxNumOfRanks = 0
-        for idx, dataset in enumerate(self.config.dataset_names):
-            self.maxIncTime[dataset] = self.target_df[dataset]["time (inc)"].max()
-            self.maxExcTime[dataset] = self.target_df[dataset]["time"].max()
-            self.minIncTime[dataset] = self.target_df[dataset]["time (inc)"].min()
-            self.minExcTime[dataset] = self.target_df[dataset]["time"].min()
-            self.numOfRanks[dataset] = len(self.target_df[dataset]["rank"].unique())
-            max_exclusive_time = max(self.maxExcTime[dataset], maxExcTime)
-            max_inclusive_time = max(self.maxIncTime[dataset], maxIncTime)
-            min_exclusive_time = min(self.minExcTime[dataset], minExcTime)
-            min_inclusive_time = min(self.minIncTime[dataset], minIncTime)
-            max_numOfRanks = max(self.numOfRanks[dataset], max_numOfRanks)
-        self.maxIncTime["ensemble"] = maxIncTime
-        self.maxExcTime["ensemble"] = maxExcTime
-        self.minIncTime["ensemble"] = minIncTime
-        self.minExcTime["ensemble"] = minExcTime
-        self.numOfRanks["ensemble"] = maxNumOfRanks
-
 
 class Config:
     def __init__(self):
@@ -57,16 +16,14 @@ class BaseCallFlow:
 
         # Assert if config is provided.
         assert config != None
-        self.config = config
+        self.pipeline = Pipeline(config)
+        self.props = json.loads(json.dumps(config, default=lambda o: o.__dict__))
 
         if process:
-            self.pipeline = Pipeline(self.config)
             self._create_dot_callflow_folder()
             self.process_states()
-
         else:
-            self.appState = AppState(self.config)
-            self.read_states()
+            self.datasets = self.read_states()
 
     # --------------------------------------------------------------------------
     # public API. child classes should implement these functions
@@ -74,10 +31,10 @@ class BaseCallFlow:
         self._process_states()
 
     def read_states(self):
-        self._read_states()
+        return self._read_states()
 
     def request(self, operation):
-        self._request(operation)
+        return self._request(operation)
 
     # --------------------------------------------------------------------------
     def displayStats(self, name):
@@ -102,19 +59,19 @@ class BaseCallFlow:
         """
         Create a .callflow directory and empty files.
         """
-        LOGGER.debug(f"Saved .callflow directory is: {self.config.save_path}")
+        LOGGER.debug(f"Saved .callflow directory is: {self.props['save_path']}")
 
-        if not os.path.exists(self.config.save_path):
-            os.makedirs(self.config.save_path)
+        if not os.path.exists(self.props["save_path"]):
+            os.makedirs(self.props["save_path"])
 
-        for dataset in self.config.datasets:
-            dataset_dir = os.path.join(self.config.save_path, dataset["name"])
+        for dataset in self.props["datasets"]:
+            dataset_dir = os.path.join(self.props["save_path"], dataset["name"])
             LOGGER.debug(dataset_dir)
             if not os.path.exists(dataset_dir):
-                #if self.debug:
+                # if self.debug:
                 LOGGER.debug(
                     f"Creating .callflow directory for dataset : {dataset['name']}"
-                    )
+                )
                 os.makedirs(dataset_dir)
 
             files = [
@@ -129,3 +86,4 @@ class BaseCallFlow:
                     open(fname, "w").close()
 
     # --------------------------------------------------------------------------
+    

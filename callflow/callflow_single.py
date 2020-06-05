@@ -18,7 +18,8 @@ import callflow
 LOGGER = callflow.get_logger(__name__)
 
 from callflow.timer import Timer
-from callflow.pipeline import State, Pipeline
+from callflow.pipeline import Pipeline
+from callflow import Dataset
 from callflow.utils import (
     getMaxExcTime,
     getMinExcTime,
@@ -26,7 +27,7 @@ from callflow.utils import (
     getMinIncTime,
 )
 
-from callflow import SingleCCT, SingleSuperGraph, BaseCallFlow
+from callflow import CCT, SingleSuperGraph, BaseCallFlow
 
 from callflow.modules import (
     SingleAuxiliary,
@@ -44,8 +45,8 @@ class SingleCallFlow(BaseCallFlow):
 
     # --------------------------------------------------------------------------
     def _process_states(self):
-        for dataset_name in self.config.dataset_names:
-            state = State(dataset_name)
+        for dataset_name in self.props["dataset_names"]:
+            state = Dataset(dataset_name)
             LOGGER.info("#########################################")
             LOGGER.info(f"Run: {dataset_name}")
             LOGGER.info("#########################################")
@@ -81,19 +82,19 @@ class SingleCallFlow(BaseCallFlow):
 
         return state
 
-    def _read_states(self, datasets):
-        states = {}
-        for idx, dataset in enumerate(datasets):
-            states[dataset] = self.pipeline.read_dataset_gf(dataset)
-        return states
+    def _read_states(self):
+        datasets = {}
+        print(self.props)
+        for idx, dataset in enumerate(self.props["dataset_names"]):
+            datasets[dataset] = self.pipeline.read_dataset_gf(dataset)
+        return datasets
 
     def _request(self, action):
         LOGGER.info("[Single Mode]", action)
         action_name = action["name"]
 
         if action_name == "init":
-            self.setConfig()
-            return self.config
+            return self.props
 
         if "groupBy" in action:
             LOGGER.info("Grouping by: {0}".format(action["groupBy"]))
@@ -136,7 +137,7 @@ class SingleCallFlow(BaseCallFlow):
             return minihistogram.result
 
         elif action_name == "cct":
-            graph = singleCCT(
+            graph = CCT(
                 self.states[action["dataset"]], action["functionsInCCT"], self.config
             )
             return graph.g

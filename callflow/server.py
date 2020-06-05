@@ -155,10 +155,9 @@ class CallFlowServer:
             """
             if self.debug:
                 LOGGER.debug(f"[Socket request] init: {data}")
-
-            caseStudy = data["caseStudy"]
-            result = json.dumps(self.config, default=lambda o: o.__dict__)
-            emit("init", result, json=True)
+            result = self.callflow.request({"name": "init"})
+            json_result = json.dumps(result)
+            emit("init", json_result, json=True)
 
         @sockets.on("reveal_callsite", namespace="/")
         def reveal_callsite(data):
@@ -273,8 +272,11 @@ class CallFlowServer:
                     "functionsInCCT": data["functionsInCCT"],
                 }
             )
+            console.log(nxg)
             result = json_graph.node_link_data(nxg)
-            emit("single_cct", result, json=True)
+            json_result = json.dumps(result)
+
+            emit("single_cct", json_result, json=True)
 
         @sockets.on("single_supergraph", namespace="/")
         def single_supergraph(data):
@@ -334,8 +336,10 @@ class CallFlowServer:
                     "functionsInCCT": data["functionsInCCT"],
                 }
             )
+            LOGGER.debug(nxg)
             result = json_graph.node_link_data(nxg)
-            emit("ensemble_cct", result, json=True)
+            json_result = json.dumps(result)
+            emit("ensemble_cct", json_result, json=True)
 
         @sockets.on("ensemble_supergraph", namespace="/")
         def ensemble_supergraph(data):

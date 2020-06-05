@@ -34,7 +34,7 @@ class EnsembleAuxiliary:
         MPIBinCount="20",
         RunBinCount="20",
         datasets=[],
-        config={},
+        props={},
         process=True,
         write=False,
     ):
@@ -42,13 +42,13 @@ class EnsembleAuxiliary:
         self.df = self.select_rows(states["ensemble_entire"].new_gf.df, datasets)
         self.MPIBinCount = MPIBinCount
         self.RunBinCount = RunBinCount
-        self.config = config
+        self.props = props
         self.states = states
         self.process = process
         self.write = write
         self.datasets = datasets
 
-        self.props = ["rank", "name", "dataset", "all_ranks"]
+        self.hist_props = ["rank", "name", "dataset", "all_ranks"]
         self.filter = True
 
     def filter_dict(self, result):
@@ -61,14 +61,14 @@ class EnsembleAuxiliary:
         ret["callsite"] = {}
 
         group_df = self.df.groupby(["name"]).mean()
-        if self.config.filter_by == "time":
+        if self.props["filter_by"] == "time":
             f_group_df = group_df.loc[
-                group_df[self.config.filter_by] > self.config.filter_below
+                group_df[self.props["filter_by"]] > self.props["filter_below"]
             ]
-        elif self.config.filter_by == "time (inc)":
+        elif self.props["filter_by"] == "time (inc)":
             f_group_df = group_df.loc[
-                group_df[self.config.filter_by]
-                > 0.01 * self.config.filter_perc * group_df["time (inc)"].max()
+                group_df[self.props["filter_by"]]
+                > 0.01 * self.props["filter_perc"] * group_df["time (inc)"].max()
             ]
         callsites = f_group_df.index.values.tolist()
 
@@ -85,8 +85,6 @@ class EnsembleAuxiliary:
 
     def group_frames(self):
         if self.filter:
-            # self.df = self.df.loc[self.df['time'] > 0.01*self.config.filter_perc*self.df['time'].max() ]
-            # self.df = self.df.loc[self.df['time (inc)'] > self.config.filter_perc]['name'].unique()
             xgroup_df = self.df.groupby(["name"]).mean()
             sort_xgroup_df = xgroup_df.sort_values(by=["time (inc)"], ascending=False)
             top100callsites = sort_xgroup_df.nlargest(50, "time (inc)")
@@ -356,7 +354,7 @@ class EnsembleAuxiliary:
             hists = {}
             hists["Inclusive"] = {}
             hists["Exclusive"] = {}
-            for prop in self.props:
+            for prop in self.hist_props:
                 prop_histograms = self.histogram_by_property_ensemble(
                     callsite_ensemble_df, prop
                 )
@@ -391,7 +389,7 @@ class EnsembleAuxiliary:
                     hists = {}
                     hists["Inclusive"] = {}
                     hists["Exclusive"] = {}
-                    for prop in self.props:
+                    for prop in self.hist_props:
                         prop_histograms = self.histogram_by_property(
                             callsite_ensemble_df, callsite_target_df, prop
                         )
@@ -418,7 +416,7 @@ class EnsembleAuxiliary:
         for module, module_df in self.module_group_df:
             module_ensemble_df = self.module_group_df.get_group(module)
             hists = {"Inclusive": {}, "Exclusive": {}}
-            for prop in self.props:
+            for prop in self.hist_props:
                 prop_histograms = self.histogram_by_property_ensemble(
                     module_ensemble_df, prop
                 )
@@ -444,7 +442,7 @@ class EnsembleAuxiliary:
                 gradients = {"Inclusive": {}, "Exclusive": {}}
                 hists = {"Inclusive": {}, "Exclusive": {}}
                 if not module_target_df.empty:
-                    for prop in self.props:
+                    for prop in self.hist_props:
                         prop_histograms = self.histogram_by_property(
                             module_ensemble_df, module_target_df, prop
                         )
@@ -463,7 +461,7 @@ class EnsembleAuxiliary:
 
     def run(self):
         ret = {}
-        path = os.path.join(self.config.save_path, "all_data.json")
+        path = os.path.join(self.props["save_path"], "all_data.json")
 
         if self.process:
             LOGGER.info(

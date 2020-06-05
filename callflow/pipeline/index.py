@@ -14,7 +14,7 @@ from callflow.datastructures.uniongraph import UnionGraph
 from callflow.algorithms.deltacon_similarity import DeltaConSimilarity
 from callflow.modules.auxiliary_ensemble import EnsembleAuxiliary
 from .process import PreProcess
-from .state import State
+from callflow import Dataset
 from callflow import GraphFrame
 
 # from callflow.logger import Log
@@ -25,10 +25,8 @@ LOGGER = callflow.get_logger(__name__)
 
 class Pipeline:
     def __init__(self, config):
-        # self.log = Log("pipeline")
         self.config = config
         self.dirname = self.config.save_path
-        self.debug = True
 
     ##################### Pipeline Functions ###########################
     # All pipeline functions avoid the state being mutated by reference to create separate instances of State variables.
@@ -36,11 +34,9 @@ class Pipeline:
     # Create the State from the hatchet's graphframe.
     def create_gf(self, name):
 
-        state = State(name)
+        state = Dataset(name)
         state.new_entire_gf = GraphFrame.from_config(self.config, name)
 
-        print(state.new_entire_gf)
-        print(type(state.new_entire_gf))
         # state.entire_gf = state.new_entire_gf
         # state.entire_df = state.new_entire_gf.df
         # state.entire_graph = state.new_entire_gf.graph
@@ -88,7 +84,6 @@ class Pipeline:
                 .build()
             )
 
-        print(preprocess.gf)
         state.new_gf = preprocess.gf
         # state.df = preprocess.new_gf.df
         # state.graph = preprocess.new_gf.graph
@@ -124,18 +119,10 @@ class Pipeline:
             u_graph.unionize(states[dataset].new_gf.nxg, dataset)
             u_df = pd.concat([u_df, states[dataset].new_gf.df], sort=True)
 
-        state = State("union")
+        state = Dataset("union")
         state.new_gf = GraphFrame()
         state.new_gf.df = u_df
         state.new_gf.nxg = u_graph.R
-
-        # state.df = state.new_gf.df
-        # state.g = state.new_gf.nxg
-
-        """
-        #state.df = u_df
-        #state.g = u_graph.R
-        """
 
         if True:  # self.debug:
             LOGGER.debug("Done with Union.")
@@ -161,7 +148,7 @@ class Pipeline:
             df = filter_obj.filter_df_by_time(perc)
             g = filter_obj.filter_graph_by_time(df, state.new_gf.nxg)
 
-        state = State("filter_union")
+        state = Dataset("filter_union")
         state.new_gf = GraphFrame()
         state.new_gf.df = df
         state.new_gf.nxg = g
@@ -189,10 +176,7 @@ class Pipeline:
         return state
 
     def group(self, state, attr):
-        print(state.new_gf.nxg)
         grouped_graph = groupBy(state, attr)
-
-        # state.new_gf = groupBy(state, attr)
 
         state.new_gf.nxg = grouped_graph.g
         state.new_gf.df = grouped_graph.df
@@ -203,7 +187,7 @@ class Pipeline:
             state["ensemble_entire"], state["ensemble_filter"], attr
         ).run()
 
-        state = State("ensemble_union")
+        state = Dataset("ensemble_union")
         state.new_gf = GraphFrame()
         state.new_gf.df = grouped_graph["df"]
         state.new_gf.nxg = grouped_graph["g"]
@@ -276,7 +260,7 @@ class Pipeline:
     # Read the ensemble graph and dataframe.
     def read_ensemble_gf(self, name):
         LOGGER.info(f"[Process] Reading the union dataframe and graph : {name}")
-        state = State(name)
+        state = Dataset(name)
         dirname = self.config.save_path
 
         union_df_filepath = os.path.join(dirname, name + "_df.csv")
@@ -301,7 +285,7 @@ class Pipeline:
 
     # Read a single dataset, pass the dataset name as a parameter.
     def read_dataset_gf(self, name):
-        state = State(name)
+        state = Dataset(name)
         LOGGER.info(
             "[Process] Reading the dataframe and graph of state: {0}".format(name)
         )
