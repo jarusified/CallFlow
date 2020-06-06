@@ -6,38 +6,39 @@ import callflow
 LOGGER = callflow.get_logger(__name__)
 from callflow.pipeline import Pipeline
 
-class Config:
-    def __init__(self):
-        pass
-
-
 class BaseCallFlow:
     def __init__(self, config={}, process=False):
 
         # Assert if config is provided.
         assert config != None
         self.pipeline = Pipeline(config)
+
+        # Convert config json to props. Never touch self.config ever. 
         self.props = json.loads(json.dumps(config, default=lambda o: o.__dict__))
 
+        # Based on option, either process into .callflow or read from .callflow. 
         if process:
             self._create_dot_callflow_folder()
-            self.process_states()
+            self.process_datasets()
         else:
-            self.datasets = self.read_states()
+            self.datasets = self.read_datasets()
 
     # --------------------------------------------------------------------------
     # public API. child classes should implement these functions
-    def process_states(self):
-        self._process_states()
+    def process_datasets(self):
+        self._process_datasets()
 
-    def read_states(self):
-        return self._read_states()
+    def read_datasets(self):
+        return self._read_datasets()
 
     def request(self, operation):
         return self._request(operation)
 
     # --------------------------------------------------------------------------
     def displayStats(self, name):
+        """
+        TODO: Probably remove. 
+        """
         log.warn("==========================")
         log.info("Number of datasets : {0}".format(len(self.config[name].paths.keys())))
         log.info("Stats: Dataset ({0}) ".format(name))

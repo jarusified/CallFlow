@@ -44,45 +44,30 @@ class SingleCallFlow(BaseCallFlow):
         super(SingleCallFlow, self).__init__(config, process)
 
     # --------------------------------------------------------------------------
-    def _process_states(self):
-        for dataset_name in self.props["dataset_names"]:
-            state = Dataset(dataset_name)
-            LOGGER.info("#########################################")
-            LOGGER.info(f"Run: {dataset_name}")
-            LOGGER.info("#########################################")
+    def _process_datasets(self):
+        dataset_name = self.props.dataset_name
+        dataset = Dataset(dataset_name)
+        LOGGER.info("#########################################")
+        LOGGER.info(f"Run: {dataset_name}")
+        LOGGER.info("#########################################")
 
-            stage1 = time.perf_counter()
-            state = self.pipeline.create_gf(dataset_name)
-            stage2 = time.perf_counter()
-            LOGGER.info(f"Create GraphFrame: {stage2 - stage1}")
-            LOGGER.info("-----------------------------------------")
+        # Create each graphframe.
+        dataset = dataset.create_gf()
 
-            states = self.pipeline.process_gf(state, "entire")
-            stage3 = time.perf_counter()
-            LOGGER.info(f"Preprocess GraphFrame: {stage3 - stage2}")
-            LOGGER.info("-----------------------------------------")
+        # Process each graphframe.
+        dataset = dataset.process_gf(gf_type="entire")
 
-            state = self.pipeline.hatchetToNetworkX(state, "path")
-            stage4 = time.perf_counter()
-            LOGGER.info(f"Convert to NetworkX graph: {stage4 - stage3}")
-            LOGGER.info("-----------------------------------------")
+        # Filter by inclusive or exclusive time. 
+        dataset = dataset.filter_gf()
 
-            state = self.pipeline.group(state, "module")
-            stage5 = time.perf_counter()
-            LOGGER.info(f"Group GraphFrame: {stage5 - stage4}")
-            LOGGER.info("-----------------------------------------")
-
-            self.pipeline.write_dataset_gf(
-                state, dataset_name, "entire", write_graph=False
-            )
-            stage6 = time.perf_counter()
-            LOGGER.info(f"Write GraphFrame: {stage6 - stage5}")
-            LOGGER.info("-----------------------------------------")
-            LOGGER.info(f'Module: {state.new_gf.df["module"].unique()}')
-
+        # Group by module.
+        dataset = dataset.group_gf(group_by="module")
+        
+        dataset.write_gf("entire")
+            
         return state
 
-    def _read_states(self):
+    def _read_datasets(self):
         datasets = {}
         for idx, dataset in enumerate(self.props["dataset_names"]):
             datasets[dataset] = self.pipeline.read_dataset_gf(dataset)

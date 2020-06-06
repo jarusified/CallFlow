@@ -22,7 +22,7 @@ from callflow import Dataset
 
 from callflow.utils import getMaxExcTime, getMinExcTime, getMaxIncTime, getMinIncTime
 from callflow.timer import Timer
-from callflow import CCT, SuperGraph, BaseCallFlow
+from callflow import CCT, SuperGraph, BaseCallFlow, UnionCCT
 from callflow.modules import (
     RankHistogram,
     EnsembleAuxiliary,
@@ -42,7 +42,10 @@ class EnsembleCallFlow(BaseCallFlow):
     def __init__(self, config=None, process=None):
         super(EnsembleCallFlow, self).__init__(config, process)
 
-# Config contains properties set by the input config file.
+
+        # TODO: Need to find a place for this. 
+        # This is used by auxiliary data. 
+        # Config contains properties set by the input config file.
         self.currentMPIBinCount = 20
         self.currentRunBinCount = 20
 
@@ -54,113 +57,65 @@ class EnsembleCallFlow(BaseCallFlow):
         #     ]
 
     # --------------------------------------------------------------------------
-    # TODo: look at the difference in signature
-    def _process_states(self):
-        states = {}
-        # col_names = ["stage", "time"]
-        # time_perf_df = pd.DataFrame(columns=col_names)
+    def _process_datasets(self):
+        """
+        """
+        # Single dataset processing. 
+        single_datasets = {}
         for idx, dataset_name in enumerate(self.props["dataset_names"]):
-            states[dataset_name] = Dataset(self.props, dataset_name)
-            # LOGGER.info("#########################################")
-            # LOGGER.info(f"Run: {dataset_name}")
-            # LOGGER.info("#########################################")
+            # Create an instance of dataset. 
+            single_datasets[dataset_name] = Dataset(self.props, dataset_name)
+            LOGGER.info("#########################################")
+            LOGGER.info(f"Run: {dataset_name}")
+            LOGGER.info("#########################################")
 
-            # stage1 = time.perf_counter()
-            states[dataset_name].create_gf()
-            # stage2 = time.perf_counter()
-            # LOGGER.info(f"Create GraphFrame: {stage2 - stage1}")
-            # LOGGER.info("-----------------------------------------")
+            # Create each graphframe.
+            single_datasets[dataset_name].create_gf()
 
-            states[dataset_name].process_gf(gf_type="entire")
-            # stage3 = time.perf_counter()
+            # Process each graphframe. 
+            single_datasets[dataset_name].process_gf(gf_type="entire")
+            
+            # Write the entire graphframe into .callflow. 
+            single_datasets[dataset_name].write_dataset("entire")
 
-            # LOGGER.info(f"Preprocess GraphFrame: {stage3 - stage2}")
-            # LOGGER.info("-----------------------------------------")
+        # Create a dataset for ensemble case. 
+        ensemble_dataset = Dataset(self.props, "ensemble")
 
-            states[dataset_name].convert_hatchet_to_nx(gf_type="entire", column_name="path")
-            # stage4 = time.perf_counter()
-            # LOGGER.info(f"Convert to NetworkX graph: {stage4 - stage3}")
-            # LOGGER.info("-----------------------------------------")
+        # Construct a ensemble of datasets
+        ensemble_dataset.ensemble(single_datasets)
 
-            states[dataset_name].group_gf(group_by="module")
-            # stage5 = time.perf_counter()
-            # LOGGER.info(f"Convert to NetworkX graph: {stage4 - stage3}")
-            # LOGGER.info("-----------------------------------------")
+        # TODO: This thing breaks. 
+        # ensemble_dataset.write_dataset("entire")
 
-            states[dataset_name].write_dataset("entire")
-            # stage6 = time.perf_counter()
-            # LOGGER.info(f"Write GraphFrame: {stage6 - stage5}")
-            # LOGGER.info("-----------------------------------------")
+        # Filter the ensemble graphframe. 
+        ensemble_dataset.filter_gf()
 
-        for idx, dataset_name in enumerate(self.props["dataset_names"]):
-            states[dataset_name].read_dataset(gf_type="entire", read_parameters=False)
+        # Write the filtered graphframe. 
+        ensemble_dataset.write_gf("ensemble_filter")
 
-        stage7 = time.perf_counter()
-        states["union_graph"] = Dataset(self.props, 'union_graph')
-        states['union_graph'].union(datasets)
+        # Group by module. 
+        ensemble_dataset.group_gf("module")
 
-        states["union_graph"] = states["union_cct"].union()
-        stage8 = time.perf_counter()
+        # Write the grouped graphframe. 
+        ensemble_dataset.write_gf("ensemble_group")
 
-        # LOGGER.info(f"Union GraphFrame: {stage8 - stage7}")
-        # LOGGER.info("-----------------------------------------")
-
-        states[dataset_name].write_ensemble_gf(states, "ensemble_entire")
-        # stage9 = time.perf_counter()
-        # LOGGER.info(f"Writing ensemble graph: {stage9 - stage8}")
-        # LOGGER.info("-----------------------------------------")
-
-        stage10 = time.perf_counter()
-        states["ensemble_filter"] = self.pipeline.filterNetworkX(
-            states["ensemble_entire"], self.props["filter_perc"]
-        )
-        stage11 = time.perf_counter()
-
-        LOGGER.info(f"Filter ensemble graph: {stage11 - stage10}")
-        LOGGER.info("-----------------------------------------")
-
-        stage12 = time.perf_counter()
-        states[dataset_name].write_ensemble_gf(states, "ensemble_filter")
-        stage13 = time.perf_counter()
-        LOGGER.info(f"Writing ensemble graph: {stage13 - stage12}")
-        LOGGER.info("-----------------------------------------")
-
-        stage14 = time.perf_counter()
-        states["ensemble_group"] = self.pipeline.ensemble_group(states, "module")
-        stage15 = time.perf_counter()
-
-        LOGGER.info(f"Group ensemble graph: {stage15 - stage14}")
-        LOGGER.info("-----------------------------------------")
-        stage16 = time.perf_counter()
-        states[dataset_name].write_ensemble_gf(states, "ensemble_group")
-        stage17 = time.perf_counter()
-
-        LOGGER.info(f"Write group ensemble graph: {stage17 - stage16}")
-        LOGGER.info("-----------------------------------------")
-
-        # Need to remove the dependence on reading the dataframe again.
-        states = {}
-        states["ensemble_entire"].read_ensemble_gf("ensemble_entire")
-
-        stage18 = time.perf_counter()
+        # Calculate auxiliary information (used by callflow app.)
         aux = EnsembleAuxiliary(
-            states,
-            MPIBinCount=20,
-            RunBinCount=20,
-            datasets=self.props["dataset_names"],
+            ensemble_dataset,
+            MPIBinCount=self.currentMPIBinCount,
+            RunBinCount=self.currentRunBinCount,
             props=self.props,
             process=True,
             write=True,
         )
         aux.run()
-        stage19 = time.perf_counter()
-        LOGGER.info(f"Dump Gradient, distribution and variations: {stage19 - stage18}")
-        LOGGER.info("-----------------------------------------")
 
-        return states
-
-    def _read_states(self):
+    def _read_datasets(self):
         states = {}
+        # We are reading once again to make sure we have 
+        for idx, dataset_name in enumerate(self.props["dataset_names"]):
+            datasets[dataset_name].read_dataset(gf_type="entire", read_parameters=False)
+
         states["ensemble_entire"] = self.pipeline.read_ensemble_gf("ensemble_entire")
         states["ensemble_filter"] = self.pipeline.read_ensemble_gf("ensemble_filter")
         states["ensemble_group"] = self.pipeline.read_ensemble_gf("ensemble_group")
