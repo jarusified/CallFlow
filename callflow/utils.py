@@ -266,33 +266,6 @@ def graphmltojson(graphfile, outfile):
 
 
 # ------------------------------------------------------------------------------
-
-
-def getPathListFromFrames(frames):
-    paths = []
-    for frame in frames:
-        path = []
-        for f in frame:
-            if f["type"] == "function":
-                path.append(f["name"])
-            elif f["type"] == "statement":
-                path.append(f["file"] + ":" + str(f["line"]))
-            elif f["type"] == "loop":
-                path.append(f["file"] + ":" + str(f["line"]))
-        paths.append(path)
-    return path
-
-
-def framesToPathLists(paths):
-    all_paths = []
-    for path in paths:
-        curr_path = []
-        for frame in path:
-            curr_path.append(frame["name"])
-        all_paths.append(curr_path)
-    return all_paths
-
-
 def bfs_hatchet(graph):
     ret = {}
     node_count = 0
@@ -347,14 +320,3 @@ def sanitizeName(name):
     else:
         return name
 
-
-# Return the Callsite name from frame.
-def getNodeDictFromFrame(frame):
-    if frame["type"] == "function":
-        return {"name": frame["name"], "line": "NA", "type": "function"}
-    elif frame["type"] == "statement":
-        return {"name": frame["file"], "line": frame["line"], "type": "statement"}
-    elif frame["type"] == "loop":
-        return {"name": frame["file"], "line": frame["line"], "type": "loop"}
-    else:
-        return {}

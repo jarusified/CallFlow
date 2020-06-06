@@ -65,13 +65,11 @@ class SingleCallFlow(BaseCallFlow):
         
         dataset.write_gf("entire")
             
-        return state
-
     def _read_datasets(self):
-        datasets = {}
-        for idx, dataset in enumerate(self.props["dataset_names"]):
-            datasets[dataset] = self.pipeline.read_dataset_gf(dataset)
-        return datasets
+        dataset_name = self.props.dataset_name
+        dataset = Dataset()
+        dataset.read_gf(dataset)
+        return dataset
 
     def _request(self, action):
         LOGGER.info("[Single Mode]", action)
