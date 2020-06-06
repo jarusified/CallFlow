@@ -2,11 +2,12 @@ import os
 import json
 import pandas as pd 
 from networkx.readwrite import json_graph
-import callflow
-LOGGER = callflow.get_logger(__name__)
-from callflow import GraphFrame
-from callflow.operations import Process, HatchetToNetworkX, Group
 
+import callflow
+from callflow import GraphFrame
+from callflow.operations import Process, Group, Filter
+
+LOGGER = callflow.get_logger(__name__)
 
 class Dataset(object):
     def __init__(self, props={}, tag=''):
@@ -23,23 +24,47 @@ class Dataset(object):
 
         self.dirname = self.props["save_path"]
 
-
         self.callsite_module_map = {}
         self.projection_data = {}
 
-    def map_to_gf(self, gf_type):
+    def _getter(self, gf_type):
+        """
+        Getter for graphframe. Returns the graphframe based on `gf_type`.
+        """
         if gf_type == 'filter':
             gf = self.gf
         elif gf_type == 'entire':
             gf = self.entire_gf
+
         return gf
 
-    def create_gf(self):
-        self.entire_gf = GraphFrame.from_config(self.props, self.tag)
+    def _setter(self, gf, gf_type):
+        """
+        Setter for graphframe. Hooks the graphframe based on `gf_type`.
+        """
+        if gf_type == 'filter':
+            self.gf = gf
+        elif gf_type == 'entire':
+            self.entire_gf = gf
 
-    # TODO: move the process functions to graphframe. 
+    def create_gf(self):
+        """
+        Creates a graphframe using config and networkX grapg from hatchet graph.
+        Each graphframe is tagged by a unique identifier. 
+        e.g., here is the runName from config file or JSON.
+
+        """
+        self.entire_gf = GraphFrame.from_config(self.props, self.tag)
+        self.nxg = GraphFrame.from_hatchet_graph(self.entire_gf.graph)
+    
     def process_gf(self, gf_type):
-        gf = self.map_to_gf(gf_type)
+        """
+        # TODO: move the process functions to graphframe. 
+        # I am not doing this now. Might be next commit. 
+        Process graphframe to add properties depending on the format. 
+        Current processing is supported for hpctoolkit and caliper. 
+        """
+        gf = self._getter(gf_type)
         if self.props["format"][self.tag] == "hpctoolkit":
             process = (
                 Process.Builder(gf, self.tag)
@@ -67,49 +92,40 @@ class Dataset(object):
                 .build()
             )
 
-            if gf_type == 'filter':
-                self.gf = process.gf
-            elif gf_type == 'entire':
-                self.entire_gf = process.gf
-
-    def convert_hatchet_to_nx(self, gf_type='entire', column_name='path'):
-        gf = self.map_to_gf(gf_type)    
-        nxg = HatchetToNetworkX(gf, column_name).nxg
-
-        if gf_type == 'filter':
-            self.gf.nxg = nxg
-        elif gf_type == 'entire':
-            self.entire_gf.nxg = nxg
+        self._setter(process.gf, "entire")
         
     def group_gf(self, gf_type="entire", group_by='module'):
-        gf = self.map_to_gf(gf_type)
-        group = Group(gf, group_by)
-        if gf_type == 'filter':
-            self.gf = group.gf
-        elif gf_type == 'entire':
-            self.entire_gf = group.gf
-
-    def lookup(self, node):
-        return self.gf.lookup(node)
-
-    def lookup_with_node(self, node):
-        return self.gf.lookup_with_node(node)
-
-    def lookup_with_name(self, name):
-        return self.gf.lookup_with_name(node)
-
-    def lookup_with_vis_nodeName(self, name):
-        return self.gf.lookup_with_name(node)
-
-    def update_df(self, col_name, mapping):
-        return self.gf.update_df(col_name, mapping)
-
-    def grouped_df(self, attr):
-        self.gdf[attr] = self.gf.df.groupby(attr, as_index=True, squeeze=True)
-        self.gdfKeys = self.gdf[attr].groups.keys()
-
-    def create_target_maps(self):
         """
+        Group the graphframe based on `group_by` parameter. 
+        """
+        gf = self._getter(gf_type)
+        group = Group(gf, group_by)
+        self._setter(group.gf, gf_type)
+
+    def union(self, gf, gf_type="entire"):
+        pass
+
+    def ensemble_gf(self, gfs, gf_type="entire"):
+        """
+        Ensemble the graphframes. 
+        """
+        gf = self._getter(gf_type)
+        union = self.union(gf)
+        print(union)
+        self._setter(union, "entire")
+
+    def filter_gf(self, mode="single"):
+        """
+        Filter the graphframe. 
+        """
+        gf = self._getter("entire")
+        print(gf)
+        filter_res = Filter(gf, mode=mode, filter_by=self.props["filter_by"], filter_perc=self.props["filter_perc"])
+        self._setter(filter_res.gf, "filter")
+
+    def target_maps(self):
+        """
+        Create target maps. 
         """
         self.target_df = {}
         self.target_modules = {}
@@ -157,7 +173,7 @@ class Dataset(object):
                 self.target_module_name_group_df[run]["time"].max().to_dict()
             )
 
-    def create_ensemble_maps(self):
+    def ensemble_maps(self):
         """
         """
         self.modules = self.new_gf.df["module"].unique()
@@ -185,8 +201,11 @@ class Dataset(object):
         callsites_df = sort_xgroup_df.nlargest(count, sort_attr)
         return callsites_df.index.values.tolist()
 
-    # Read a single dataset, pass the dataset name as a parameter.
     def read_dataset(self, gf_type="entire", read_df=True, read_nxg=True, read_parameters=True):
+        """
+        # Read a single dataset stored in .callflow directory.
+        """
+        
         LOGGER.info(
             "Reading the dataset: {0}".format(self.tag)
         )
@@ -226,19 +245,19 @@ class Dataset(object):
 
             self.projection_data = projection_data
 
-    ##################### Write Functions ###########################
-    # Write the dataset's graphframe to the file.
     def write_dataset(self, gf_type, write_df=True, write_graph=True, write_nxg=True):
+        """
+        # Write the dataset to .callflow directory.
+        """
         # Get the save path. 
         dirname = self.props["save_path"]
 
-        gf = self.map_to_gf(gf_type)
+        gf = self._getter(gf_type)
 
         # dump the filtered dataframe to csv if write_df is true. 
         if write_df:
             df_file_name = gf_type + "_df.csv"
             df_file_path = os.path.join(dirname, self.tag, df_file_name)
-            print(gf)
             gf.df.to_csv(df_file_path)
 
         #
@@ -254,8 +273,10 @@ class Dataset(object):
             with open(graph_filepath, "a") as hatchet_graphFile:
                 hatchet_graphFile.write(gf.tree(color=False))
 
-    # Write the graph similarities to a file.
     def writeSimilarity(self, datasets, states, type):
+        """
+        # Write the pair-wise graph similarities into .callflow directory.
+        """
         ret = {}
         for idx, dataset in enumerate(datasets):
             ret[dataset] = []
@@ -270,7 +291,10 @@ class Dataset(object):
         with open(similarity_filepath, "w") as json_file:
             json.dump(ret, json_file)
 
-    def read_all_data(self):
+    def read_auxiliary_data(self):
+        """
+        # Read the auxiliary data from all_data.json. 
+        """
         all_data_filepath = os.path.join(self.config.save_path, "all_data.json")
         LOGGER.info(f"[Read] {all_data_filepath}")
         with open(all_data_filepath, "r") as filter_graphFile:

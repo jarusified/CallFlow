@@ -1,43 +1,66 @@
 import networkx as nx
+import pandas as pd
+import callflow
+from callflow import GraphFrame, Dataset
+LOGGER = callflow.get_logger(__name__)
 
 
-class UnionGraph:
-    def __init__(self):
-        self.R = nx.DiGraph()
-        self.runs = {}
-        self.diffset = {}
+# Mostly derive from supergraph.
+# Should contain the vector that stores the properties as explained in paper. 
+# should contain a function `create` which contains the 
+class UnionGraph(Dataset):
+    def __init__(self, props, tag, datasets):
+        super().__init__(props, tag)
+        self.nxg = nx.DiGraph()
+        self.df = pd.DataFrame([])
+        self.entire_gf = GraphFrame(graph=None, dataframe=self.df)
+        self.gf = None
+        self.datasets = datasets
+
+    def _getter(self):
+        pass
+
+    def _setter(self):
+        pass
+
+    def union(self, gf_type="entire"):
+        for idx, dataset in enumerate(self.datasets):
+            self.unionize(self.datasets[dataset].gf)
+            self.entire_gf.df = pd.concat([self.df, self.datasets[dataset].gf.df], sort=True)
+
+        self.entire_gf.nxg = self.nxg
+        return self.entire_gf
 
     # Return the union of graphs G and H.
-    def unionize(self, H, name=None, rename=(None, None)):
-        if not self.R.is_multigraph() == H.is_multigraph():
+    def unionize(self, gf, name=None, rename=(None, None)):
+        if not self.nxg.is_multigraph() == gf.nxg.is_multigraph():
             raise nx.NetworkXError("G and H must both be graphs or multigraphs.")
 
-        self.R.graph.update(H.graph)
+        self.nxg.update(gf.nxg)
 
-        renamed_nodes = self.add_prefix(H, rename[1])
+        renamed_nodes = self.add_prefix(gf.nxg, rename[1])
 
-        debug = False
-        if debug:
-            print("-=========================-")
-            print("Nodes in R and H are same? ", set(self.R) == set(H))
-            if set(self.R) != set(H):
-                print("Difference is ", list(set(H) - set(self.R)))
-                print("Nodes in R", set(self.R)),
-                print("Nodes in H", set(H))
-            print("-=========================-")
+        LOGGER.debug("-=========================-")
+        is_same = set(self.nxg) == set(gf.nxg)
+        LOGGER.debug(f"Nodes in R and H are same? : {is_same}")
+        if set(self.nxg) != set(gf.nxg):
+            LOGGER.debug(f"Difference is { list(set(gf.nxg) - set(self.nxg))}")
+            LOGGER.debug(f"Nodes in R: {set(self.nxg)}")
+            LOGGER.debug(f"Nodes in H: {set(gf.nxg)}")
+        LOGGER.debug("-=========================-")
 
-        if H.is_multigraph():
-            H_edges = H.edges(keys=True, data=True)
+        if gf.nxg.is_multigraph():
+            new_edges = gf.nxg.edges(keys=True, data=True)
         else:
-            H_edges = H.edges(data=True)
+            new_edges = gf.nxg.edges(data=True)
 
         # add nodes and edges.
-        self.R.add_nodes_from(H)
-        self.R.add_edges_from(H_edges)
+        self.nxg.add_nodes_from(gf.nxg)
+        self.nxg.add_edges_from(new_edges)
 
         # add node attributes for each run
         for n in renamed_nodes:
-            self.add_node_attributes(H, n, name)
+            self.add_node_attributes(gf.nxg, n, name)
 
     # rename graph to obtain disjoint node labels
     def add_prefix(self, graph, prefix):
@@ -56,13 +79,13 @@ class UnionGraph:
     def add_edge_attributes(self):
         number_of_runs_mapping = self.number_of_runs()
         nx.set_edge_attributes(
-            self.R, name="number_of_runs", values=number_of_runs_mapping
+            self.union, name="number_of_runs", values=number_of_runs_mapping
         )
 
     def number_of_runs(self):
         ret = {}
-        for idx, name in enumerate(self.runs):
-            for edge in self.runs[name].edges():
+        for idx, name in enumerate(self.unionuns):
+            for edge in self.unionuns[name].edges():
                 if edge not in ret:
                     ret[edge] = 0
                 ret[edge] += 1
@@ -70,7 +93,7 @@ class UnionGraph:
 
     def add_node_attributes(self, H, node, dataset_name):
         for idx, (key, val) in enumerate(H.nodes.items()):
-            if dataset_name not in self.R.nodes[node]:
-                self.R.nodes[node][dataset_name] = 0
+            if dataset_name not in self.nxg.nodes[node]:
+                self.nxg.nodes[node][dataset_name] = 0
             if key == node:
-                self.R.nodes[node][dataset_name] = 1
+                self.nxg.nodes[node][dataset_name] = 1

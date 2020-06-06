@@ -22,7 +22,7 @@ from callflow import Dataset
 
 from callflow.utils import getMaxExcTime, getMinExcTime, getMaxIncTime, getMinIncTime
 from callflow.timer import Timer
-from callflow import CCT, SuperGraph, BaseCallFlow, UnionCCT
+from callflow import CCT, SuperGraph, BaseCallFlow, UnionGraph
 from callflow.modules import (
     RankHistogram,
     EnsembleAuxiliary,
@@ -76,19 +76,19 @@ class EnsembleCallFlow(BaseCallFlow):
             single_datasets[dataset_name].process_gf(gf_type="entire")
             
             # Write the entire graphframe into .callflow. 
-            single_datasets[dataset_name].write_dataset("entire")
+            # single_datasets[dataset_name].write_dataset("entire")
 
         # Create a dataset for ensemble case. 
         ensemble_dataset = Dataset(self.props, "ensemble")
 
         # Construct a ensemble of datasets
-        ensemble_dataset.ensemble(single_datasets)
+        ensemble_dataset.ensemble_gf(single_datasets)
 
-        # TODO: This thing breaks. 
+        # TODO: This call breaks. 
         # ensemble_dataset.write_dataset("entire")
 
         # Filter the ensemble graphframe. 
-        ensemble_dataset.filter_gf()
+        ensemble_dataset.filter_gf(mode="ensemble")
 
         # Write the filtered graphframe. 
         ensemble_dataset.write_gf("ensemble_filter")
