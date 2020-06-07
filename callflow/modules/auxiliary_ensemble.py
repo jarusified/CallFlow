@@ -30,7 +30,7 @@ from callflow.timer import Timer
 class EnsembleAuxiliary:
     def __init__(
         self,
-        states,
+        ensemble_dataset,
         MPIBinCount="20",
         RunBinCount="20",
         datasets=[],
@@ -39,11 +39,10 @@ class EnsembleAuxiliary:
         write=False,
     ):
         self.timer = Timer()
-        self.df = self.select_rows(states["ensemble_entire"].new_gf.df, datasets)
+        self.df = self.select_rows(ensemble_dataset.entire_gf.df, datasets)
         self.MPIBinCount = MPIBinCount
         self.RunBinCount = RunBinCount
         self.props = props
-        self.states = states
         self.process = process
         self.write = write
         self.datasets = datasets

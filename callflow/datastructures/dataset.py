@@ -24,7 +24,6 @@ class Dataset(object):
         self.gf = None
         self.entire_gf = None
 
-        print(self.props)
         self.dirname = self.props["save_path"]
 
         self.callsite_module_map = {}
@@ -103,11 +102,10 @@ class Dataset(object):
         """
         Group the graphframe based on `group_by` parameter. 
         """
-        gf = self._getter(gf_type)
+        gf = self.entire_gf
         group = Group(gf, group_by)
-        self._setter(group.gf, gf_type)
-        assert isinstance(gf, callflow.GraphFrame)
-
+        self.entire_gf = group.gf
+        assert isinstance(group.gf, callflow.GraphFrame)
 
     def filter_gf(self, mode="single"):
         """
@@ -120,10 +118,8 @@ class Dataset(object):
             filter_by=self.props["filter_by"],
             filter_perc=self.props["filter_perc"],
         )
-        self.gf = filter_res.gf
-        assert isinstance(gf, callflow.GraphFrame)
-
-        self.gf = filter_res.gf
+        assert isinstance(filter_res.gf, callflow.GraphFrame)
+        self.entire_gf = filter_res.gf
 
     def target_maps(self):
         """
@@ -253,7 +249,7 @@ class Dataset(object):
         # Get the save path.
         dirname = self.props["save_path"]
 
-        gf = self._getter(gf_type)
+        gf = self.entire_gf
 
         # dump the filtered dataframe to csv if write_df is true.
         if write_df:

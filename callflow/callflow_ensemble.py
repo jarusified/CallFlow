@@ -89,19 +89,21 @@ class EnsembleCallFlow(BaseCallFlow):
         ensemble_dataset.filter_gf(mode="ensemble")
 
         # Write the filtered graphframe.
-        # ensemble_dataset.write_gf("ensemble_filter")
+        # ensemble_dataset.write_dataset("filter")
 
         # Group by module.
-        ensemble_dataset.group_gf(gf_type="filter", group_by="module")
+        ensemble_dataset.group_gf(gf_type="entire", group_by="module")
 
         # Write the grouped graphframe.
-        ensemble_dataset.write_gf("ensemble_group")
+        # ensemble_dataset.write_dataset("group")
 
         # Calculate auxiliary information (used by callflow app.)
         aux = EnsembleAuxiliary(
             ensemble_dataset,
-            MPIBinCount=self.currentMPIBinCount,
-            RunBinCount=self.currentRunBinCount,
+            # MPIBinCount=self.currentMPIBinCount,
+            # RunBinCount=self.currentRunBinCount,
+            MPIBinCount=20,
+            RunBinCount=20,
             props=self.props,
             process=True,
             write=True,

@@ -44,7 +44,7 @@ class Filter:
         self.min_time_exc_list = np.hstack(
             [self.min_time_exc_list, self.gf.df["time"].min()]
         )
-        
+
         LOGGER.info(f"Min. time (inc): {self.min_time_inc_list}")
         LOGGER.info(f"Max. time (inc): {self.max_time_inc_list}")
         LOGGER.info(f"Min. time (exc): {self.min_time_exc_list}")
@@ -54,7 +54,6 @@ class Filter:
         self.min_time_inc = np.min(self.min_time_inc_list)
         self.max_time_exc = np.max(self.max_time_exc_list)
         self.min_time_exc = np.min(self.min_time_exc_list)
-
 
     def set_max_min_times_ensemble(self):
         self.max_time_inc_list = np.array([])
@@ -104,7 +103,6 @@ class Filter:
         callsites = self.gf.df["name"].unique()
 
         ret = nx.DiGraph()
-        print(self.gf.nxg)
         for edge in self.gf.nxg.edges():
             # If source is present in the callsites list
             if edge[0] in callsites and edge[1] in callsites:
