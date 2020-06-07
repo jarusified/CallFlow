@@ -23,7 +23,7 @@ from networkx.readwrite import json_graph
 
 import callflow
 from callflow import SingleCallFlow, EnsembleCallFlow
-from callflow.pipeline import ConfigFileReader
+from callflow.operations import ConfigFileReader
 
 
 LOGGER = callflow.get_logger(__name__)
