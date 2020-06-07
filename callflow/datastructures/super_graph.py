@@ -1,15 +1,9 @@
 import networkx as nx
+from callflow import Dataset
 
-
-class SuperGraph(ht.GraphFrame):
-    def __init__(self, graph=None, dataframe=None, exc_metrics=None, inc_metrics=None):
-
-        # TODO: will we ever want to create a graphframe without data?
-        if graph is not None and dataframe is not None:
-            super().__init__(graph, dataframe, exc_metrics, inc_metrics)
-
-            # shortcut!
-            self.df = self.dataframe
+class SuperGraph(Dataset):
+    def __init__(self, props, tag):
+        super().__init__(props, tag)
 
         # save a networkx graph
         self.nxg = None

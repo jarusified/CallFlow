@@ -102,7 +102,7 @@ class Dataset(object):
         group = Group(gf, group_by)
         self._setter(group.gf, gf_type)
 
-    def union(self, gf, gf_type="entire"):
+    def ensemble(self, gfs, gf_type="entire"):
         pass
 
     def ensemble_gf(self, gfs, gf_type="entire"):
@@ -110,9 +110,8 @@ class Dataset(object):
         Ensemble the graphframes. 
         """
         gf = self._getter(gf_type)
-        union = self.union(gf)
-        print(union)
-        self._setter(union, "entire")
+        ensemble = self.ensemble(gfs)
+        self._setter(ensemble, "entire")
 
     def filter_gf(self, mode="single"):
         """

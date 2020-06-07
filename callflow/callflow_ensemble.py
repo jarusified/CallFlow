@@ -17,12 +17,11 @@ import pandas as pd
 import callflow
 
 LOGGER = callflow.get_logger(__name__)
-from callflow.pipeline import Pipeline
 from callflow import Dataset
 
 from callflow.utils import getMaxExcTime, getMinExcTime, getMaxIncTime, getMinIncTime
 from callflow.timer import Timer
-from callflow import CCT, SuperGraph, BaseCallFlow, UnionGraph
+from callflow import CCT, SuperGraph, BaseCallFlow, EnsembleGraph
 from callflow.modules import (
     RankHistogram,
     EnsembleAuxiliary,
@@ -111,12 +110,14 @@ class EnsembleCallFlow(BaseCallFlow):
         aux.run()
 
     def _read_datasets(self):
-        states = {}
+        datasets = {}
         # We are reading once again to make sure we have 
         for idx, dataset_name in enumerate(self.props["dataset_names"]):
+            datasets[dataset_name] = Dataset(dataset_name)
             datasets[dataset_name].read_dataset(gf_type="entire", read_parameters=False)
 
-        states["ensemble_entire"] = self.pipeline.read_ensemble_gf("ensemble_entire")
+        datasets["ensemble"] = Dataset("ensemble")
+        datasets["ensemble"].read_gf("ensemble")
         states["ensemble_filter"] = self.pipeline.read_ensemble_gf("ensemble_filter")
         states["ensemble_group"] = self.pipeline.read_ensemble_gf("ensemble_group")
         states["all_data"] = self.pipeline.read_all_data()

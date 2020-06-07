@@ -8,31 +8,60 @@ LOGGER = callflow.get_logger(__name__)
 # Mostly derive from supergraph.
 # Should contain the vector that stores the properties as explained in paper. 
 # should contain a function `create` which contains the 
-class UnionGraph(Dataset):
-    def __init__(self, props, tag, datasets):
+class EnsembleGraph(Dataset):
+    def __init__(self, props, tag):
         super().__init__(props, tag)
-        self.nxg = nx.DiGraph()
-        self.df = pd.DataFrame([])
-        self.entire_gf = GraphFrame(graph=None, dataframe=self.df)
-        self.gf = None
-        self.datasets = datasets
+        self.gfs = []
+        self.vector = {} # For each callsite we store the vector here. 
 
     def _getter(self):
         pass
 
     def _setter(self):
         pass
+    
+    def ensemble(self, gfs, gf_type="entire"):
+        """
+        Construct an ensemble supergraph.
+        """
+        if gf_type == "entire":
+            self.entire_gf = None
+        elif gf_type == "filter":
+            self.gf = None
 
-    def union(self, gf_type="entire"):
-        for idx, dataset in enumerate(self.datasets):
-            self.unionize(self.datasets[dataset].gf)
-            self.entire_gf.df = pd.concat([self.df, self.datasets[dataset].gf.df], sort=True)
+        # set self.gfs
+        self.gfs = gfs
+
+        # Union the dataframe.
+        self.union_df()
+
+        # Union the nxg. 
+        self.union_nxg()
 
         self.entire_gf.nxg = self.nxg
         return self.entire_gf
 
+    @staticmethod
+    def union_df(gfs):
+        """
+        Union the dataframes. 
+        """
+        df = pd.DataFrame([])
+        for idx, gf in enumerate(gfs):
+            df = pd.concat([df, gf.df], sort=True)
+        return df
+
+    @staticmethod
+    def union_nxg(gfs):
+        """
+        Unnion the netwprkX graph. 
+        """
+        self.nxg = nx.DiGraph()
+        for idx, gf in enumerate(gfs):
+            self.union(gf)
+    
     # Return the union of graphs G and H.
-    def unionize(self, gf, name=None, rename=(None, None)):
+    def union(self, gf, name=None, rename=(None, None)):
         if not self.nxg.is_multigraph() == gf.nxg.is_multigraph():
             raise nx.NetworkXError("G and H must both be graphs or multigraphs.")
 
@@ -94,6 +123,4 @@ class UnionGraph(Dataset):
     def add_node_attributes(self, H, node, dataset_name):
         for idx, (key, val) in enumerate(H.nodes.items()):
             if dataset_name not in self.nxg.nodes[node]:
-                self.nxg.nodes[node][dataset_name] = 0
-            if key == node:
-                self.nxg.nodes[node][dataset_name] = 1
+                self.nxg.nodes[node] = self.vector[node]
