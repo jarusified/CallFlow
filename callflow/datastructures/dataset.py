@@ -1,6 +1,6 @@
 import os
 import json
-import pandas as pd 
+import pandas as pd
 from networkx.readwrite import json_graph
 
 import callflow
@@ -9,8 +9,9 @@ from callflow.operations import Process, Group, Filter
 
 LOGGER = callflow.get_logger(__name__)
 
+
 class Dataset(object):
-    def __init__(self, props={}, tag=''):
+    def __init__(self, props={}, tag=""):
 
         # it appears we're using name as "union", "filter", etc.
         # this is not a data set name!
@@ -31,9 +32,9 @@ class Dataset(object):
         """
         Getter for graphframe. Returns the graphframe based on `gf_type`.
         """
-        if gf_type == 'filter':
+        if gf_type == "filter":
             gf = self.gf
-        elif gf_type == 'entire':
+        elif gf_type == "entire":
             gf = self.entire_gf
 
         return gf
@@ -42,9 +43,9 @@ class Dataset(object):
         """
         Setter for graphframe. Hooks the graphframe based on `gf_type`.
         """
-        if gf_type == 'filter':
+        if gf_type == "filter":
             self.gf = gf
-        elif gf_type == 'entire':
+        elif gf_type == "entire":
             self.entire_gf = gf
 
     def create_gf(self):
@@ -56,7 +57,7 @@ class Dataset(object):
         """
         self.entire_gf = GraphFrame.from_config(self.props, self.tag)
         self.nxg = GraphFrame.from_hatchet_graph(self.entire_gf.graph)
-    
+
     def process_gf(self, gf_type):
         """
         # TODO: move the process functions to graphframe. 
@@ -93,8 +94,8 @@ class Dataset(object):
             )
 
         self._setter(process.gf, "entire")
-        
-    def group_gf(self, gf_type="entire", group_by='module'):
+
+    def group_gf(self, gf_type="entire", group_by="module"):
         """
         Group the graphframe based on `group_by` parameter. 
         """
@@ -119,7 +120,12 @@ class Dataset(object):
         """
         gf = self._getter("entire")
         print(gf)
-        filter_res = Filter(gf, mode=mode, filter_by=self.props["filter_by"], filter_perc=self.props["filter_perc"])
+        filter_res = Filter(
+            gf,
+            mode=mode,
+            filter_by=self.props["filter_by"],
+            filter_perc=self.props["filter_perc"],
+        )
         self._setter(filter_res.gf, "filter")
 
     def target_maps(self):
@@ -191,7 +197,6 @@ class Dataset(object):
         self.module_time_exc_map = self.module_group_df["time"].max().to_dict()
         self.name_time_exc_map = self.module_name_group_df["time"].max().to_dict()
 
-
     def get_top_n_callsites_by_attr(self, count, sort_attr):
         """
         """
@@ -200,14 +205,14 @@ class Dataset(object):
         callsites_df = sort_xgroup_df.nlargest(count, sort_attr)
         return callsites_df.index.values.tolist()
 
-    def read_dataset(self, gf_type="entire", read_df=True, read_nxg=True, read_parameters=True):
+    def read_dataset(
+        self, gf_type="entire", read_df=True, read_nxg=True, read_parameters=True
+    ):
         """
         # Read a single dataset stored in .callflow directory.
         """
-        
-        LOGGER.info(
-            "Reading the dataset: {0}".format(self.tag)
-        )
+
+        LOGGER.info("Reading the dataset: {0}".format(self.tag))
 
         if read_df:
             df_file_name = gf_type + "_df.csv"
@@ -216,7 +221,7 @@ class Dataset(object):
             df = pd.read_csv(df_file_path)
 
             if df.empty:
-                raise ValueError(f'{df_file_path} is empty.')
+                raise ValueError(f"{df_file_path} is empty.")
 
             self.gf.df = df
 
@@ -248,12 +253,12 @@ class Dataset(object):
         """
         # Write the dataset to .callflow directory.
         """
-        # Get the save path. 
+        # Get the save path.
         dirname = self.props["save_path"]
 
         gf = self._getter(gf_type)
 
-        # dump the filtered dataframe to csv if write_df is true. 
+        # dump the filtered dataframe to csv if write_df is true.
         if write_df:
             df_file_name = gf_type + "_df.csv"
             df_file_path = os.path.join(dirname, self.tag, df_file_name)

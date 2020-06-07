@@ -41,9 +41,8 @@ class EnsembleCallFlow(BaseCallFlow):
     def __init__(self, config=None, process=None):
         super(EnsembleCallFlow, self).__init__(config, process)
 
-
-        # TODO: Need to find a place for this. 
-        # This is used by auxiliary data. 
+        # TODO: Need to find a place for this.
+        # This is used by auxiliary data.
         # Config contains properties set by the input config file.
         self.currentMPIBinCount = 20
         self.currentRunBinCount = 20
@@ -59,10 +58,10 @@ class EnsembleCallFlow(BaseCallFlow):
     def _process_datasets(self):
         """
         """
-        # Single dataset processing. 
+        # Single dataset processing.
         single_datasets = {}
         for idx, dataset_name in enumerate(self.props["dataset_names"]):
-            # Create an instance of dataset. 
+            # Create an instance of dataset.
             single_datasets[dataset_name] = Dataset(self.props, dataset_name)
             LOGGER.info("#########################################")
             LOGGER.info(f"Run: {dataset_name}")
@@ -71,31 +70,31 @@ class EnsembleCallFlow(BaseCallFlow):
             # Create each graphframe.
             single_datasets[dataset_name].create_gf()
 
-            # Process each graphframe. 
+            # Process each graphframe.
             single_datasets[dataset_name].process_gf(gf_type="entire")
-            
-            # Write the entire graphframe into .callflow. 
+
+            # Write the entire graphframe into .callflow.
             # single_datasets[dataset_name].write_dataset("entire")
 
-        # Create a dataset for ensemble case. 
+        # Create a dataset for ensemble case.
         ensemble_dataset = Dataset(self.props, "ensemble")
 
         # Construct a ensemble of datasets
         ensemble_dataset.ensemble_gf(single_datasets)
 
-        # TODO: This call breaks. 
+        # TODO: This call breaks.
         # ensemble_dataset.write_dataset("entire")
 
-        # Filter the ensemble graphframe. 
+        # Filter the ensemble graphframe.
         ensemble_dataset.filter_gf(mode="ensemble")
 
-        # Write the filtered graphframe. 
+        # Write the filtered graphframe.
         ensemble_dataset.write_gf("ensemble_filter")
 
-        # Group by module. 
+        # Group by module.
         ensemble_dataset.group_gf("module")
 
-        # Write the grouped graphframe. 
+        # Write the grouped graphframe.
         ensemble_dataset.write_gf("ensemble_group")
 
         # Calculate auxiliary information (used by callflow app.)
@@ -111,7 +110,7 @@ class EnsembleCallFlow(BaseCallFlow):
 
     def _read_datasets(self):
         datasets = {}
-        # We are reading once again to make sure we have 
+        # We are reading once again to make sure we have
         for idx, dataset_name in enumerate(self.props["dataset_names"]):
             datasets[dataset_name] = Dataset(dataset_name)
             datasets[dataset_name].read_dataset(gf_type="entire", read_parameters=False)
@@ -124,7 +123,7 @@ class EnsembleCallFlow(BaseCallFlow):
 
         return states
 
-    # Write individual functiosn to do this. 
+    # Write individual functiosn to do this.
     def _request(self, operation):
         self.add_target_df()
         self.add_basic_info_to_props()
@@ -135,9 +134,7 @@ class EnsembleCallFlow(BaseCallFlow):
             return self.props
 
         elif operation_tag == "ensemble_cct":
-            nx = CCT(
-                self.datasets, "ensemble_entire", operation["functionsInCCT"]
-            )
+            nx = CCT(self.datasets, "ensemble_entire", operation["functionsInCCT"])
             LOGGER.debug(nx.g.nodes())
             return nx.g
 
@@ -279,39 +276,45 @@ class EnsembleCallFlow(BaseCallFlow):
     def add_basic_info_to_props(self):
         """
         """
-        self.props['maxIncTime'] = {}
-        self.props['maxExcTime'] = {}
-        self.props['minIncTime'] = {}
-        self.props['minExcTime'] = {}
-        self.props['numOfRanks'] = {}
+        self.props["maxIncTime"] = {}
+        self.props["maxExcTime"] = {}
+        self.props["minIncTime"] = {}
+        self.props["minExcTime"] = {}
+        self.props["numOfRanks"] = {}
         maxIncTime = 0
         maxExcTime = 0
         minIncTime = 0
         minExcTime = 0
         maxNumOfRanks = 0
         for idx, dataset in enumerate(self.props["dataset_names"]):
-            self.props['maxIncTime'][dataset] = self.target_df[dataset]["time (inc)"].max()
-            self.props['maxExcTime'][dataset] = self.target_df[dataset]["time"].max()
-            self.props['minIncTime'][dataset] = self.target_df[dataset]["time (inc)"].min()
-            self.props['minExcTime'][dataset] = self.target_df[dataset]["time"].min()
-            self.props['numOfRanks'][dataset] = len(self.target_df[dataset]["rank"].unique())
-            maxExcTime = max(self.props['maxExcTime'][dataset], maxExcTime)
-            maxIncTime = max(self.props['maxIncTime'][dataset], maxIncTime)
-            minExcTime = min(self.props['minExcTime'][dataset], minExcTime)
-            minIncTime = min(self.props['minIncTime'][dataset], minIncTime)
-            maxNumOfRanks = max(self.props['numOfRanks'][dataset], maxNumOfRanks)
+            self.props["maxIncTime"][dataset] = self.target_df[dataset][
+                "time (inc)"
+            ].max()
+            self.props["maxExcTime"][dataset] = self.target_df[dataset]["time"].max()
+            self.props["minIncTime"][dataset] = self.target_df[dataset][
+                "time (inc)"
+            ].min()
+            self.props["minExcTime"][dataset] = self.target_df[dataset]["time"].min()
+            self.props["numOfRanks"][dataset] = len(
+                self.target_df[dataset]["rank"].unique()
+            )
+            maxExcTime = max(self.props["maxExcTime"][dataset], maxExcTime)
+            maxIncTime = max(self.props["maxIncTime"][dataset], maxIncTime)
+            minExcTime = min(self.props["minExcTime"][dataset], minExcTime)
+            minIncTime = min(self.props["minIncTime"][dataset], minIncTime)
+            maxNumOfRanks = max(self.props["numOfRanks"][dataset], maxNumOfRanks)
 
-        self.props['maxIncTime']["ensemble"] = maxIncTime
-        self.props['maxExcTime']["ensemble"] = maxExcTime
-        self.props['minIncTime']["ensemble"] = minIncTime
-        self.props['minExcTime']["ensemble"] = minExcTime
-        self.props['numOfRanks']["ensemble"] = maxNumOfRanks
+        self.props["maxIncTime"]["ensemble"] = maxIncTime
+        self.props["maxExcTime"]["ensemble"] = maxExcTime
+        self.props["minIncTime"]["ensemble"] = minIncTime
+        self.props["minExcTime"]["ensemble"] = minExcTime
+        self.props["numOfRanks"]["ensemble"] = maxNumOfRanks
 
     def add_target_df(self):
         """
         """
         self.target_df = {}
-        for dataset in self.props['dataset_names']:
+        for dataset in self.props["dataset_names"]:
             self.target_df[dataset] = self.datasets["ensemble_entire"].new_gf.df.loc[
                 self.datasets["ensemble_entire"].new_gf.df["dataset"] == dataset
             ]

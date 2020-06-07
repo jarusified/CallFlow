@@ -11,7 +11,6 @@ import callflow
 
 LOGGER = callflow.get_logger(__name__)
 from callflow.timer import Timer
-from callflow.utils import sanitizeName
 
 
 class ModuleHierarchy:

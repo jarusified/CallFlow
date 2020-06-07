@@ -6,8 +6,11 @@ import callflow
 
 LOGGER = callflow.get_logger(__name__)
 
+
 class Filter:
-    def __init__(self, gf=None, mode="single", filter_by="time (inc)", filter_perc="10"):
+    def __init__(
+        self, gf=None, mode="single", filter_by="time (inc)", filter_perc="10"
+    ):
         self.df = gf.df
         self.nxg = gf.nxg
 

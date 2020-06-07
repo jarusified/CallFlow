@@ -3,7 +3,6 @@ import pandas as pd
 import hatchet as ht
 import networkx as nx
 import callflow
-from callflow.utils import getNodeDictFromFrame, sanitizeName
 
 LOGGER = callflow.get_logger(__name__)
 
@@ -17,17 +16,17 @@ class GraphFrame(ht.GraphFrame):
 
             # shortcut!
             self.df = self.dataframe
-            
+
         # save a networkx graph
         self.nxg = None
 
     # --------------------------------------------------------------------------
     # Hatchet's GraphFrame utilities.
-    
+
     @staticmethod
     def from_hatchet(gf):
         """
-         promote a hatchet graph frame to callflow graph frame
+        Promotes a hatchet graph frame to callflow graph frame
         """
         assert isinstance(gf, ht.GraphFrame)
         return GraphFrame(gf.graph, gf.dataframe, gf.exc_metrics, gf.inc_metrics)
@@ -63,40 +62,8 @@ class GraphFrame(ht.GraphFrame):
         return GraphFrame.from_hatchet(gf)
 
     # --------------------------------------------------------------------------
-    # callflow.graph utilities. 
-
-    @staticmethod
-    def path_list_from_frames(frames):
-        """
-         Constructs callsite's path from Hatchet's frame.
-        """
-        paths = []
-        for frame in frames:
-            path = []
-            for f in frame:
-                if f["type"] == "function":
-                    path.append(f["name"])
-                elif f["type"] == "statement":
-                    path.append(f["file"] + ":" + str(f["line"]))
-                elif f["type"] == "loop":
-                    path.append(f["file"] + ":" + str(f["line"]))
-            paths.append(path)
-        return path
-    
-    @staticmethod
-    def get_node_dict_from_frame(frame):
-        """
-         Constructs callsite's name from Hatchet's frame.
-        """
-        if frame["type"] == "function":
-            return {"name": frame["name"], "line": "NA", "type": "function"}
-        elif frame["type"] == "statement":
-            return {"name": frame["file"], "line": frame["line"], "type": "statement"}
-        elif frame["type"] == "loop":
-            return {"name": frame["file"], "line": frame["line"], "type": "loop"}
-        else:
-            return {}
-    
+    # callflow.graph utilities.
+    #
     @staticmethod
     def from_hatchet_graph(hatchet_graph):
         """
@@ -106,15 +73,15 @@ class GraphFrame(ht.GraphFrame):
         for root in hatchet_graph.roots:
             node_gen = root.traverse()
 
-            root_dict = getNodeDictFromFrame(root.frame)
+            root_dict = callflow.utils.node_dict_from_frame(root.frame)
             root_name = root_dict["name"]
             root_paths = root.paths()
             node = root
 
             try:
                 while node:
-                    # `getNodeDictFromFrame` converts the hatchet's frame to 
-                    node_dict = getNodeDictFromFrame(node.frame)
+                    # `getNodeDictFromFrame` converts the hatchet's frame to
+                    node_dict = callflow.utils.node_dict_from_frame(node.frame)
                     node_name = node_dict["name"]
 
                     # Get all node paths from hatchet.
@@ -124,32 +91,40 @@ class GraphFrame(ht.GraphFrame):
                     for node_path in node_paths:
                         if len(node_path) >= 2:
 
-                            source_node_dict = getNodeDictFromFrame(node_path[-2])
-                            target_node_dict = getNodeDictFromFrame(node_path[-1])
+                            source_node_dict = callflow.utils.node_dict_from_frame(
+                                node_path[-2]
+                            )
+                            target_node_dict = callflow.utils.node_dict_from_frame(
+                                node_path[-1]
+                            )
 
                             if source_node_dict["line"] != "NA":
                                 source_node_name = (
-                                    sanitizeName(source_node_dict["name"])
+                                    callflow.utils.sanitize_name(
+                                        source_node_dict["name"]
+                                    )
                                     + ":"
                                     + str(source_node_dict["line"])
                                 )
                             else:
-                                source_node_name = sanitizeName(
+                                source_node_name = callflow.utils.sanitize_name(
                                     source_node_dict["name"]
                                 )
                             if target_node_dict["line"] != "NA":
                                 target_node_name = (
-                                    sanitizeName(target_node_dict["name"])
+                                    callflow.utils.sanitize_name(
+                                        target_node_dict["name"]
+                                    )
                                     + ":"
                                     + str(target_node_dict["line"])
                                 )
                             else:
-                                target_node_name = sanitizeName(
+                                target_node_name = callflow.utils.sanitize_name(
                                     target_node_dict["name"]
                                 )
-                            
+
                             nxg.add_edge(source_node_name, target_node_name)
-                    
+
                     node = next(node_gen)
 
             except StopIteration:
@@ -160,7 +135,7 @@ class GraphFrame(ht.GraphFrame):
         return nxg
 
     # --------------------------------------------------------------------------
-    # callflow.nxg utilities. 
+    # callflow.nxg utilities.
 
     @staticmethod
     def add_prefix(graph, prefix):
@@ -199,4 +174,5 @@ class GraphFrame(ht.GraphFrame):
         self.df[col_name] = self.df["name"].apply(
             lambda node: mapping[node] if node in mapping.keys() else ""
         )
+
     # --------------------------------------------------------------------------

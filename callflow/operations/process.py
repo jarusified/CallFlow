@@ -16,15 +16,10 @@ from functools import wraps
 import numpy as np
 from scipy.stats import kurtosis, skew
 
-from callflow.utils import (
-    sanitizeName,
-    visModuleCallsiteName,
-    getNodeDictFromFrame,
-    getPathListFromFrames,
-)
-
 import callflow
+
 LOGGER = callflow.get_logger(__name__)
+
 
 class Process:
     """
@@ -71,15 +66,17 @@ class Process:
             graph = self.graph
 
             for node in graph.traverse():
-                node_dict = getNodeDictFromFrame(node.frame)
+                node_dict = callflow.utils.node_dict_from_frame(node.frame)
 
                 if node_dict["type"] == "loop":
-                    node_name = "Loop@" + sanitizeName(
+                    node_name = "Loop@" + callflow.utils.sanitize_name(
                         node_dict["name"] + ":" + str(node_dict["line"])
                     )
                 elif node_dict["type"] == "statement":
                     node_name = (
-                        sanitizeName(node_dict["name"]) + ":" + str(node_dict["line"])
+                        callflow.utils.sanitize_name(node_dict["name"])
+                        + ":"
+                        + str(node_dict["line"])
                     )
                 else:
                     node_name = node_dict["name"]
@@ -97,7 +94,9 @@ class Process:
         def add_path(self):
             self.raiseExceptionIfNodeCountNotEqual(self.paths)
             self.df["path"] = self.df["name"].apply(
-                lambda node_name: getPathListFromFrames(self.paths[node_name])
+                lambda node_name: callflow.utils.path_list_from_frames(
+                    self.paths[node_name]
+                )
             )
             return self
 
@@ -187,7 +186,9 @@ class Process:
             self.callsite_module_map = self.name_group_df["module"].unique().to_dict()
 
             self.df["vis_node_name"] = self.df["name"].apply(
-                lambda name: sanitizeName(self.callsite_module_map[name][0])
+                lambda name: callflow.utils.sanitize_name(
+                    self.callsite_module_map[name][0]
+                )
                 + "="
                 + name
             )

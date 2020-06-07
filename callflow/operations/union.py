@@ -1,8 +1,8 @@
 import networkx as nx
 
 # Mostly derive from supergraph.
-# Should contain the vector that stores the properties as explained in paper. 
-# should contain a function `create` which contains the 
+# Should contain the vector that stores the properties as explained in paper.
+# should contain a function `create` which contains the
 class Union(nx.DiGraph):
     def __init__(self):
         self.union = nx.DiGraph()

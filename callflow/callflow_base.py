@@ -5,6 +5,7 @@ import callflow
 
 LOGGER = callflow.get_logger(__name__)
 
+
 class BaseCallFlow:
     def __init__(self, config={}, process=False):
 
@@ -12,10 +13,10 @@ class BaseCallFlow:
         assert config != None
         # self.pipeline = Pipeline(config)
 
-        # Convert config json to props. Never touch self.config ever. 
+        # Convert config json to props. Never touch self.config ever.
         self.props = json.loads(json.dumps(config, default=lambda o: o.__dict__))
 
-        # Based on option, either process into .callflow or read from .callflow. 
+        # Based on option, either process into .callflow or read from .callflow.
         if process:
             self._create_dot_callflow_folder()
             self.process_datasets()
@@ -86,4 +87,3 @@ class BaseCallFlow:
                     open(fname, "w").close()
 
     # --------------------------------------------------------------------------
-    

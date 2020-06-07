@@ -2,24 +2,25 @@ import networkx as nx
 import pandas as pd
 import callflow
 from callflow import GraphFrame, Dataset
+
 LOGGER = callflow.get_logger(__name__)
 
 
 # Mostly derive from supergraph.
-# Should contain the vector that stores the properties as explained in paper. 
-# should contain a function `create` which contains the 
+# Should contain the vector that stores the properties as explained in paper.
+# should contain a function `create` which contains the
 class EnsembleGraph(Dataset):
     def __init__(self, props, tag):
         super().__init__(props, tag)
         self.gfs = []
-        self.vector = {} # For each callsite we store the vector here. 
+        self.vector = {}  # For each callsite we store the vector here.
 
     def _getter(self):
         pass
 
     def _setter(self):
         pass
-    
+
     def ensemble(self, gfs, gf_type="entire"):
         """
         Construct an ensemble supergraph.
@@ -35,7 +36,7 @@ class EnsembleGraph(Dataset):
         # Union the dataframe.
         self.union_df()
 
-        # Union the nxg. 
+        # Union the nxg.
         self.union_nxg()
 
         self.entire_gf.nxg = self.nxg
@@ -59,7 +60,7 @@ class EnsembleGraph(Dataset):
         self.nxg = nx.DiGraph()
         for idx, gf in enumerate(gfs):
             self.union(gf)
-    
+
     # Return the union of graphs G and H.
     def union(self, gf, name=None, rename=(None, None)):
         if not self.nxg.is_multigraph() == gf.nxg.is_multigraph():

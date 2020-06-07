@@ -15,14 +15,14 @@ import networkx as nx
 from ast import literal_eval as make_tuple
 
 from callflow.timer import Timer
-from callflow.utils import sanitizeName
+
 
 class CCT:
     def __init__(self, datasets, graph_tag, callsite_count):
 
         self.timer = Timer()
         self.dataset = datasets[graph_tag]
-        
+
         # Get the current graph and df
         self.entire_df = self.dataset.new_gf.df
 

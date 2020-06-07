@@ -4,28 +4,30 @@ import networkx as nx
 from ast import literal_eval as make_list
 
 import callflow
+
 LOGGER = callflow.get_logger(__name__)
 
 from callflow import GraphFrame
+
 
 class Group(GraphFrame):
     def __init__(self, gf=None, group_by="name"):
         self.gf = gf
         self.df = gf.df
         self.nxg = gf.nxg
-        
+
         self.group_by = group_by
         self.entry_funcs = {}
         self.module_func_map = {}
         self.other_funcs = {}
         self.module_id_map = {}
 
-        # TODO: remove this. 
+        # TODO: remove this.
         # self.df["path"] = self.df["path"].apply(
         #     lambda path: make_list(path)
         # )
-        # TODO: move this up to the dataset. 
-        # Also could be a duplicate. 
+        # TODO: move this up to the dataset.
+        # Also could be a duplicate.
         self.callsite_module_map = self.df.set_index("name")["module"].to_dict()
         self.callsite_path_map = self.df.set_index("name")["path"].to_dict()
 
@@ -151,9 +153,7 @@ class Group(GraphFrame):
         module_id_map = {}
         module_count = 0
 
-        LOGGER.debug(
-            f"Nodes: {len(self.nxg.nodes())}, Edges: {len(self.nxg.edges())}"
-        )
+        LOGGER.debug(f"Nodes: {len(self.nxg.nodes())}, Edges: {len(self.nxg.edges())}")
 
         for idx, edge in enumerate(self.gf.nxg.edges()):
             snode = edge[0]

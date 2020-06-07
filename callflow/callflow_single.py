@@ -38,7 +38,6 @@ from callflow.modules import (
 
 
 class SingleCallFlow(BaseCallFlow):
-
     def __init__(self, config=None, process=False):
         super(SingleCallFlow, self).__init__(config, process)
 
@@ -56,14 +55,14 @@ class SingleCallFlow(BaseCallFlow):
         # Process each graphframe.
         dataset = dataset.process_gf(gf_type="entire")
 
-        # Filter by inclusive or exclusive time. 
+        # Filter by inclusive or exclusive time.
         dataset = dataset.filter_gf()
 
         # Group by module.
         dataset = dataset.group_gf(group_by="module")
-        
+
         dataset.write_gf("entire")
-            
+
     def _read_datasets(self):
         dataset_name = self.props.dataset_name
         dataset = Dataset()
