@@ -12,85 +12,106 @@ LOGGER = callflow.get_logger(__name__)
 class EnsembleGraph(Dataset):
     def __init__(self, props, tag):
         super().__init__(props, tag)
-        self.gfs = []
+        self.datasets = {}
         self.vector = {}  # For each callsite we store the vector here.
 
-    def _getter(self):
+    def _getter(self, gf_type="entire"):
         pass
 
-    def _setter(self):
+    def _setter(self, gf_type="entire"):
         pass
 
-    def ensemble(self, gfs, gf_type="entire"):
+    def construct_gf(self, datasets, gf_type="entire"):
         """
-        Construct an ensemble supergraph.
+        Ensemble the graphframes. 
         """
+        # Set the datasets with the incoming datasets.
+        self.datasets = datasets
+
+        # Shortcut! Remove it.
+        self.gf_type = gf_type
+
+        # Set the gf as first of the dataset's gf
+        first_dataset = list(self.datasets.keys())[0]
+        LOGGER.debug(f"Base for the union operation is: {first_dataset}")
+
         if gf_type == "entire":
-            self.entire_gf = None
+            self.entire_gf = self.datasets[first_dataset].entire_gf
+            self.entire_gf.df = self.union_df()
+            # There is no way to convert networkX to hatchet graph yet. So we are setting this to None.
+            self.entire_gf.graph = None
+            self.entire_gf.nxg = self.union_nxg()
+            assert isinstance(self.entire_gf, callflow.GraphFrame)
         elif gf_type == "filter":
-            self.gf = None
+            self.gf = self.datasets[first_dataset].gf
+            self.gf.df = self.union_df()
+            # There is no way to convert networkX to hatchet graph yet. So we are setting this to None.
+            self.gf.graph = None
+            self.gf.nxg = self.union_nxg()
+            assert isinstance(self.gf, callflow.GraphFrame)
 
-        # set self.gfs
-        self.gfs = gfs
-
-        # Union the dataframe.
-        self.union_df()
-
-        # Union the nxg.
-        self.union_nxg()
-
-        self.entire_gf.nxg = self.nxg
-        return self.entire_gf
-
-    @staticmethod
-    def union_df(gfs):
+    def union_df(self):
         """
         Union the dataframes. 
         """
         df = pd.DataFrame([])
-        for idx, gf in enumerate(gfs):
+        for idx, dataset_name in enumerate(self.datasets):
+            if self.gf_type == "entire":
+                gf = self.datasets[dataset_name].entire_gf
+            elif self.gf_type == "filter":
+                gf = self.datasets[dataset_name].gf
+
             df = pd.concat([df, gf.df], sort=True)
+
+        assert isinstance(df, pd.DataFrame)
         return df
 
-    @staticmethod
-    def union_nxg(gfs):
+    def union_nxg(self):
         """
-        Unnion the netwprkX graph. 
+        Union the netwprkX graph. 
         """
-        self.nxg = nx.DiGraph()
-        for idx, gf in enumerate(gfs):
-            self.union(gf)
+        nxg = nx.DiGraph()
+        for idx, dataset_name in enumerate(self.datasets):
+            LOGGER.debug("-=========================-")
+            LOGGER.debug(dataset_name)
+            self.union_nxg_recurse(nxg, self.datasets[dataset_name].nxg)
+
+        return nxg
 
     # Return the union of graphs G and H.
-    def union(self, gf, name=None, rename=(None, None)):
-        if not self.nxg.is_multigraph() == gf.nxg.is_multigraph():
+    def union_nxg_recurse(self, nxg_1, nxg_2, name=None, rename=(None, None)):
+        """
+        Iterative concatenation of nodes from nxg_2 to nxg_1. 
+        """
+        if not nxg_1.is_multigraph() == nxg_2.is_multigraph():
             raise nx.NetworkXError("G and H must both be graphs or multigraphs.")
 
-        self.nxg.update(gf.nxg)
+        nxg_1.update(nxg_2)
 
-        renamed_nodes = self.add_prefix(gf.nxg, rename[1])
+        renamed_nodes = self.add_prefix(nxg_1, rename[1])
 
+        is_same = set(nxg_1) == set(nxg_2)
+        LOGGER.debug(f"Nodes in Graph 1 and Graph 2 are same? : {is_same}")
+        if set(nxg_1) != set(nxg_2):
+            LOGGER.debug(f"Difference is { list(set(nxg_1) - set(nxg_2))}")
+            LOGGER.debug(f"Nodes in Graph 1: {set(nxg_1)}")
+            LOGGER.debug(f"Nodes in Graph 2: {set(nxg_2)}")
         LOGGER.debug("-=========================-")
-        is_same = set(self.nxg) == set(gf.nxg)
-        LOGGER.debug(f"Nodes in R and H are same? : {is_same}")
-        if set(self.nxg) != set(gf.nxg):
-            LOGGER.debug(f"Difference is { list(set(gf.nxg) - set(self.nxg))}")
-            LOGGER.debug(f"Nodes in R: {set(self.nxg)}")
-            LOGGER.debug(f"Nodes in H: {set(gf.nxg)}")
-        LOGGER.debug("-=========================-")
 
-        if gf.nxg.is_multigraph():
-            new_edges = gf.nxg.edges(keys=True, data=True)
+        if nxg_2.is_multigraph():
+            new_edges = nxg_2.edges(keys=True, data=True)
         else:
-            new_edges = gf.nxg.edges(data=True)
+            new_edges = nxg_2.edges(data=True)
 
         # add nodes and edges.
-        self.nxg.add_nodes_from(gf.nxg)
-        self.nxg.add_edges_from(new_edges)
+        nxg_1.add_nodes_from(nxg_2)
+        nxg_1.add_edges_from(new_edges)
 
-        # add node attributes for each run
-        for n in renamed_nodes:
-            self.add_node_attributes(gf.nxg, n, name)
+        # # add node attributes for each run
+        # for n in renamed_nodes:
+        #     self.add_node_attributes(nxg_1, n, name)
+
+        return nxg_1
 
     # rename graph to obtain disjoint node labels
     def add_prefix(self, graph, prefix):

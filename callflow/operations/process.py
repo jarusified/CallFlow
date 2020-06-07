@@ -201,7 +201,7 @@ class Process:
             return self
 
         def add_module_name_hpctoolkit(self):
-            self.df["module"] = self.df["module"].apply(lambda name: sanitizeName(name))
+            self.df["module"] = self.df["module"].apply(lambda name: callflow.utils.sanitize_name(name))
             return self
 
         def add_node_name_caliper(self, node_module_map):

@@ -77,10 +77,10 @@ class EnsembleCallFlow(BaseCallFlow):
             # single_datasets[dataset_name].write_dataset("entire")
 
         # Create a dataset for ensemble case.
-        ensemble_dataset = Dataset(self.props, "ensemble")
+        ensemble_dataset = EnsembleGraph(self.props, "ensemble")
 
         # Construct a ensemble of datasets
-        ensemble_dataset.ensemble_gf(single_datasets)
+        ensemble_dataset.construct_gf(single_datasets)
 
         # TODO: This call breaks.
         # ensemble_dataset.write_dataset("entire")
@@ -89,10 +89,10 @@ class EnsembleCallFlow(BaseCallFlow):
         ensemble_dataset.filter_gf(mode="ensemble")
 
         # Write the filtered graphframe.
-        ensemble_dataset.write_gf("ensemble_filter")
+        # ensemble_dataset.write_gf("ensemble_filter")
 
         # Group by module.
-        ensemble_dataset.group_gf("module")
+        ensemble_dataset.group_gf(gf_type="filter", group_by="module")
 
         # Write the grouped graphframe.
         ensemble_dataset.write_gf("ensemble_group")

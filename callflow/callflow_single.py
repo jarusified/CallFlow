@@ -43,23 +43,23 @@ class SingleCallFlow(BaseCallFlow):
 
     # --------------------------------------------------------------------------
     def _process_datasets(self):
-        dataset_name = self.props.dataset_name
-        dataset = Dataset(dataset_name)
+        dataset_name = self.props["dataset_names"][0]
+        dataset = Dataset(self.props, dataset_name)
         LOGGER.info("#########################################")
         LOGGER.info(f"Run: {dataset_name}")
         LOGGER.info("#########################################")
 
         # Create each graphframe.
-        dataset = dataset.create_gf()
+        dataset.create_gf()
 
         # Process each graphframe.
-        dataset = dataset.process_gf(gf_type="entire")
+        dataset.process_gf(gf_type="entire")
 
         # Filter by inclusive or exclusive time.
-        dataset = dataset.filter_gf()
+        dataset.filter_gf(mode="single")
 
         # Group by module.
-        dataset = dataset.group_gf(group_by="module")
+        dataset.group_gf(gf_type="filter", group_by="module")
 
         dataset.write_gf("entire")
 

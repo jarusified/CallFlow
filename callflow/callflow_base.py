@@ -2,7 +2,6 @@ import os
 import json
 
 import callflow
-
 LOGGER = callflow.get_logger(__name__)
 
 
@@ -11,7 +10,6 @@ class BaseCallFlow:
 
         # Assert if config is provided.
         assert config != None
-        # self.pipeline = Pipeline(config)
 
         # Convert config json to props. Never touch self.config ever.
         self.props = json.loads(json.dumps(config, default=lambda o: o.__dict__))

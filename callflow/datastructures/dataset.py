@@ -1,6 +1,7 @@
 import os
 import json
 import pandas as pd
+import hatchet as ht
 from networkx.readwrite import json_graph
 
 import callflow
@@ -23,6 +24,7 @@ class Dataset(object):
         self.gf = None
         self.entire_gf = None
 
+        print(self.props)
         self.dirname = self.props["save_path"]
 
         self.callsite_module_map = {}
@@ -43,6 +45,8 @@ class Dataset(object):
         """
         Setter for graphframe. Hooks the graphframe based on `gf_type`.
         """
+        assert isinstance(gf, ht.GraphFrame)
+
         if gf_type == "filter":
             self.gf = gf
         elif gf_type == "entire":
@@ -102,31 +106,24 @@ class Dataset(object):
         gf = self._getter(gf_type)
         group = Group(gf, group_by)
         self._setter(group.gf, gf_type)
+        assert isinstance(gf, callflow.GraphFrame)
 
-    def ensemble(self, gfs, gf_type="entire"):
-        pass
-
-    def ensemble_gf(self, gfs, gf_type="entire"):
-        """
-        Ensemble the graphframes. 
-        """
-        gf = self._getter(gf_type)
-        ensemble = self.ensemble(gfs)
-        self._setter(ensemble, "entire")
 
     def filter_gf(self, mode="single"):
         """
         Filter the graphframe. 
         """
-        gf = self._getter("entire")
-        print(gf)
+        gf = self.entire_gf
         filter_res = Filter(
             gf,
             mode=mode,
             filter_by=self.props["filter_by"],
             filter_perc=self.props["filter_perc"],
         )
-        self._setter(filter_res.gf, "filter")
+        self.gf = filter_res.gf
+        assert isinstance(gf, callflow.GraphFrame)
+
+        self.gf = filter_res.gf
 
     def target_maps(self):
         """
