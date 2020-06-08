@@ -120,75 +120,6 @@ class Dataset(object):
             self.gf, datasets, self.props, MPIBinCount, RunBinCount, process, write
         )
 
-    def target_maps(self):
-        """
-        Create target maps. 
-        """
-        self.target_df = {}
-        self.target_modules = {}
-        self.target_module_group_df = {}
-        self.target_module_name_group_df = {}
-        self.target_module_callsite_map = {}
-        self.target_module_time_inc_map = {}
-        self.target_module_time_exc_map = {}
-        self.target_name_time_inc_map = {}
-        self.target_name_time_exc_map = {}
-
-        for run in self.props["dataset_names"]:
-            # Reduce the entire_df to respective target dfs.
-            self.target_df[run] = df.loc[df["dataset"] == run]
-
-            # Unique modules in the target run
-            self.target_modules[run] = self.target_df[run]["module"].unique()
-
-            # Group the dataframe in two ways.
-            # 1. by module
-            # 2. by module and callsite
-            self.target_module_group_df[run] = self.target_df[run].groupby(["module"])
-            self.target_module_name_group_df[run] = self.target_df[run].groupby(
-                ["name"]
-            )
-
-            # Module map for target run {'module': [Array of callsites]}
-            self.target_module_callsite_map[run] = self.target_module_group_df[run][
-                "name"
-            ].unique()
-
-            # Inclusive time maps for the module level and callsite level.
-            self.target_module_time_inc_map[run] = (
-                self.target_module_group_df[run]["time (inc)"].max().to_dict()
-            )
-            self.target_name_time_inc_map[run] = (
-                self.target_module_name_group_df[run]["time (inc)"].max().to_dict()
-            )
-
-            # Exclusive time maps for the module level and callsite level.
-            self.target_module_time_exc_map[run] = (
-                self.target_module_group_df[run]["time"].max().to_dict()
-            )
-            self.target_name_time_exc_map[run] = (
-                self.target_module_name_group_df[run]["time"].max().to_dict()
-            )
-
-    def ensemble_maps(self):
-        """
-        """
-        self.modules = self.new_gf.df["module"].unique()
-
-        self.module_name_group_df = self.new_gf.df.groupby(["module", "name"])
-        self.module_group_df = self.new_gf.df.groupby(["module"])
-
-        # Module map for ensemble {'module': [Array of callsites]}
-        self.module_callsite_map = self.new_gf.df["name"].unique()
-
-        # Inclusive time maps for the module level and callsite level.
-        self.module_time_inc_map = self.module_group_df["time (inc)"].max().to_dict()
-        self.name_time_inc_map = self.module_name_group_df["time (inc)"].max().to_dict()
-
-        # Exclusive time maps for the module level and callsite level.
-        self.module_time_exc_map = self.module_group_df["time"].max().to_dict()
-        self.name_time_exc_map = self.module_name_group_df["time"].max().to_dict()
-
     def get_top_n_callsites_by_attr(self, count, sort_attr):
         """
         """
@@ -263,7 +194,7 @@ class Dataset(object):
             with open(graph_filepath, "a") as hatchet_graphFile:
                 hatchet_graphFile.write(self.gf.tree(color=False))
 
-    def writeSimilarity(self, datasets, states, type):
+    def write_similarity(self, datasets, states, type):
         """
         # Write the pair-wise graph similarities into .callflow directory.
         """

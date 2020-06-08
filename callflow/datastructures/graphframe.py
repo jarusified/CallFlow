@@ -154,6 +154,26 @@ class GraphFrame(ht.GraphFrame):
 
         return nx.relabel_nodes(graph, label)
 
+    @staticmethod
+    def tailhead(edge):
+        return (edge[0], edge[1])
+
+    @staticmethod
+    def tailheadDir(edge):
+        return (str(edge[0]), str(edge[1]), self.edge_direction[edge])
+
+    @staticmethod
+    def leaves_below(nxg, node):
+        return set(
+            sum(
+                (
+                    [vv for vv in v if nxg.out_degree(vv) == 0]
+                    for k, v in nx.dfs_successors(nxg, node).items()
+                ),
+                [],
+            )
+        )
+
     # --------------------------------------------------------------------------
     # callflow.df utilities
     def lookup(self, node):
@@ -174,5 +194,3 @@ class GraphFrame(ht.GraphFrame):
         self.df[col_name] = self.df["name"].apply(
             lambda node: mapping[node] if node in mapping.keys() else ""
         )
-
-    # --------------------------------------------------------------------------

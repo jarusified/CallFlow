@@ -7,7 +7,7 @@ from .datastructures.graphframe import GraphFrame
 
 from .datastructures.dataset import Dataset
 from .datastructures.ensemble_graph import EnsembleGraph
-from .datastructures.super_graph import SuperGraph
+from .datastructures.supergraph_base import SuperGraph
 from .datastructures.cct import CCT
 
 
