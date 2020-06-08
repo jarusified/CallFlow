@@ -1,7 +1,7 @@
 import networkx as nx
 import pandas as pd
 import callflow
-from callflow import GraphFrame, Dataset
+from callflow import GraphFrame, SuperGraph
 
 LOGGER = callflow.get_logger(__name__)
 
@@ -9,34 +9,32 @@ LOGGER = callflow.get_logger(__name__)
 # Mostly derive from supergraph.
 # Should contain the vector that stores the properties as explained in paper.
 # should contain a function `create` which contains the
-class EnsembleGraph(Dataset):
-    def __init__(self, props={}, tag=""):
-        super().__init__(props, tag)
+# TODO: Change inheritence to supergrpah
+class EnsembleGraph(SuperGraph):
+    def __init__(self, props={}, tag="", mode="process", datasets={}):
+        super().__init__(props, tag, mode, datasets)
         # this stores the mapping for each run's data (i.e., Dataset)
-        self.datasets = {}
+        self.datasets = datasets
         # For each callsite we store the vector here.
         self.vector = {}  
 
-    def _getter(self, gf_type="entire"):
+    def _getter(self):
         pass
 
-    def _setter(self, gf_type="entire"):
+    def _setter(self):
         pass
 
-    def create(self, datasets, gf_type="entire"):
+    def create_gf(self):
         """
         Ensemble the graphframes. 
         """
-        # Set the datasets with the incoming datasets.
-        self.datasets = datasets
-
-        # Shortcut! Remove it.
-        self.gf_type = gf_type
-
         # Set the gf as first of the dataset's gf
+        print(self.datasets)
         first_dataset = list(self.datasets.keys())[0]
         LOGGER.debug(f"Base for the union operation is: {first_dataset}")
 
+        # TODO: do a deep copy. 
+        # Instead of a deep copy, create a new graphframe and return it.
         self.gf = self.datasets[first_dataset].gf
         self.gf.df = self.union_df()
         # There is no way to convert networkX to hatchet graph yet. So we are setting this to None.
@@ -51,9 +49,6 @@ class EnsembleGraph(Dataset):
         """
         df = pd.DataFrame([])
         for idx, dataset_name in enumerate(self.datasets):
-            # if self.gf_type == "entire":
-            #     gf = self.datasets[dataset_name].entire_gf
-            # elif self.gf_type == "filter":
             gf = self.datasets[dataset_name].gf
 
             df = pd.concat([df, gf.df], sort=True)

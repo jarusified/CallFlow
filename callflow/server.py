@@ -21,11 +21,10 @@ import uuid
 import argparse
 from networkx.readwrite import json_graph
 
-import callflow
-from callflow import SingleCallFlow, EnsembleCallFlow
+from callflow import CallFlow
 from callflow.operations import ConfigFileReader
 
-
+import callflow
 LOGGER = callflow.get_logger(__name__)
 
 
@@ -54,9 +53,9 @@ class CallFlowServer:
 
         # Call the version of callflow corresponding to number of datasets.
         if len(self.config.datasets) == 1:
-            self.callflow = SingleCallFlow(config=self.config, process=self.process)
+            self.callflow = CallFlow(config=self.config, process=self.process, ensemble=False)
         else:
-            self.callflow = EnsembleCallFlow(config=self.config, process=self.process)
+            self.callflow = CallFlow(config=self.config, process=self.process, ensemble=True)
 
         # Create server if not processing.
         if not self.process:

@@ -18,7 +18,7 @@ class GraphFrame(ht.GraphFrame):
             self.df = self.dataframe
 
         # save a networkx graph
-        self.nxg = self.from_hatchet_graph(graph)
+        self.nxg = self.hatchet_graph_to_nxg(graph)
 
     # --------------------------------------------------------------------------
     # Hatchet's GraphFrame utilities.
@@ -61,11 +61,15 @@ class GraphFrame(ht.GraphFrame):
 
         return GraphFrame.from_hatchet(gf)
 
+    # TODO: Implement this method. 
+    @staticmethod
+    def from_saved_files():
+        pass
     # --------------------------------------------------------------------------
     # callflow.graph utilities.
     #
     @staticmethod
-    def from_hatchet_graph(hatchet_graph):
+    def hatchet_graph_to_nxg(hatchet_graph):
         """
         Constructs a networkX graph from hatchet graph. 
         """
