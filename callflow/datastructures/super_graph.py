@@ -1,6 +1,7 @@
 import networkx as nx
 from callflow import Dataset
 
+
 class SuperGraph(Dataset):
     def __init__(self, props, tag):
         super().__init__(props, tag)

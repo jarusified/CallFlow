@@ -7,6 +7,7 @@ from networkx.readwrite import json_graph
 import callflow
 from callflow import GraphFrame
 from callflow.operations import Process, Group, Filter
+from callflow.modules import EnsembleAuxiliary
 
 LOGGER = callflow.get_logger(__name__)
 
@@ -22,7 +23,6 @@ class Dataset(object):
         # instead of the old variables, we will use these new ones.
         # these are callflow.graphframe object (has gf, df, and networkx)
         self.gf = None
-        self.entire_gf = None
 
         self.dirname = self.props["save_path"]
 
@@ -33,12 +33,7 @@ class Dataset(object):
         """
         Getter for graphframe. Returns the graphframe based on `gf_type`.
         """
-        if gf_type == "filter":
-            gf = self.gf
-        elif gf_type == "entire":
-            gf = self.entire_gf
-
-        return gf
+        return self.gf
 
     def _setter(self, gf, gf_type):
         """
@@ -46,10 +41,7 @@ class Dataset(object):
         """
         assert isinstance(gf, ht.GraphFrame)
 
-        if gf_type == "filter":
-            self.gf = gf
-        elif gf_type == "entire":
-            self.entire_gf = gf
+        self.gf = gf
 
     def create_gf(self):
         """
@@ -58,8 +50,7 @@ class Dataset(object):
         e.g., here is the runName from config file or JSON.
 
         """
-        self.entire_gf = GraphFrame.from_config(self.props, self.tag)
-        self.nxg = GraphFrame.from_hatchet_graph(self.entire_gf.graph)
+        self.gf = GraphFrame.from_config(self.props, self.tag)
 
     def process_gf(self, gf_type):
         """
@@ -96,22 +87,23 @@ class Dataset(object):
                 .build()
             )
 
+        assert isinstance(process.gf, callflow.GraphFrame)
         self._setter(process.gf, "entire")
 
     def group_gf(self, gf_type="entire", group_by="module"):
         """
         Group the graphframe based on `group_by` parameter. 
         """
-        gf = self.entire_gf
-        group = Group(gf, group_by)
-        self.entire_gf = group.gf
+        group = Group(self.gf, group_by)
+
         assert isinstance(group.gf, callflow.GraphFrame)
+        self.gf = group.gf
 
     def filter_gf(self, mode="single"):
         """
         Filter the graphframe. 
         """
-        gf = self.entire_gf
+        gf = self.gf
         filter_res = Filter(
             gf,
             mode=mode,
@@ -119,7 +111,14 @@ class Dataset(object):
             filter_perc=self.props["filter_perc"],
         )
         assert isinstance(filter_res.gf, callflow.GraphFrame)
-        self.entire_gf = filter_res.gf
+        self.gf = filter_res.gf
+
+    def auxiliary(self, MPIBinCount=20, RunBinCount=20, process=True, write=True):
+        datasets = self.props["dataset_names"]
+        props = self.props
+        EnsembleAuxiliary(
+            self.gf, datasets, self.props, MPIBinCount, RunBinCount, process, write
+        )
 
     def target_maps(self):
         """
@@ -198,7 +197,7 @@ class Dataset(object):
         callsites_df = sort_xgroup_df.nlargest(count, sort_attr)
         return callsites_df.index.values.tolist()
 
-    def read_dataset(
+    def read_gf(
         self, gf_type="entire", read_df=True, read_nxg=True, read_parameters=True
     ):
         """
@@ -210,13 +209,10 @@ class Dataset(object):
         if read_df:
             df_file_name = gf_type + "_df.csv"
             df_file_path = os.path.join(self.dirname, self.tag, df_file_name)
-            self.gf = GraphFrame()
             df = pd.read_csv(df_file_path)
 
             if df.empty:
                 raise ValueError(f"{df_file_path} is empty.")
-
-            self.gf.df = df
 
         if read_nxg:
             nxg_file_name = gf_type + "_nxg.json"
@@ -224,10 +220,7 @@ class Dataset(object):
             with open(nxg_file_path, "r") as nxg_file:
                 graph = json.load(nxg_file)
             nxg = json_graph.node_link_graph(graph)
-
             assert nxg != None
-
-            self.gf.nxg = nxg
 
         if read_parameters:
             parameters_filepath = os.path.join(self.dirname, self.tag, "env_params.txt")
@@ -239,33 +232,33 @@ class Dataset(object):
                     projection_data[split_num[0]] = split_num[1]
 
             assert projection_data != {}
-
             self.projection_data = projection_data
 
-    def write_dataset(self, gf_type, write_df=True, write_graph=True, write_nxg=True):
+            self.gf = GraphFrame(dataframe=df)
+
+    def write_gf(self, gf_type, write_df=True, write_graph=True, write_nxg=True):
         """
         # Write the dataset to .callflow directory.
         """
         # Get the save path.
         dirname = self.props["save_path"]
 
-        gf = self.entire_gf
-
+        gf = self.gf
         # dump the filtered dataframe to csv if write_df is true.
         if write_df:
             df_file_name = gf_type + "_df.csv"
             df_file_path = os.path.join(dirname, self.tag, df_file_name)
             gf.df.to_csv(df_file_path)
 
-        #
-        if write_nxg:
+        # TODO: Writing fails.
+        if not write_nxg:
             nxg_file_name = gf_type + "_nxg.json"
             nxg_file_path = os.path.join(dirname, self.tag, nxg_file_name)
-            nxg_data = json_graph.node_link_data(gf.nxg)
+            nxg_data = json_graph.node_link_data(self.gf.nxg)
             with open(nxg_file_path, "w") as nxg_file:
                 json.dump(nxg_data, nxg_file)
 
-        if write_graph:
+        if not write_graph:
             graph_filepath = os.path.join(dirname, self.tag, "hatchet_tree.txt")
             with open(graph_filepath, "a") as hatchet_graphFile:
                 hatchet_graphFile.write(gf.tree(color=False))

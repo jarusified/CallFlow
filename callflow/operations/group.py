@@ -7,31 +7,103 @@ import callflow
 
 LOGGER = callflow.get_logger(__name__)
 
-from callflow import GraphFrame
 
-
-class Group(GraphFrame):
+class Group(callflow.GraphFrame):
     def __init__(self, gf=None, group_by="name"):
         self.gf = gf
-        self.df = gf.df
-        self.nxg = gf.nxg
-
         self.group_by = group_by
+
+        # Data.
+        self.callsite_module_map = self.gf.df.set_index("name")["module"].to_dict()
+        self.callsite_path_map = self.gf.df.set_index("name")["path"].to_dict()
+
+        # Variables used by grouping operation.
         self.entry_funcs = {}
-        self.module_func_map = {}
         self.other_funcs = {}
-        self.module_id_map = {}
-
         # TODO: remove this.
-        # self.df["path"] = self.df["path"].apply(
-        #     lambda path: make_list(path)
-        # )
-        # TODO: move this up to the dataset.
-        # Also could be a duplicate.
-        self.callsite_module_map = self.df.set_index("name")["module"].to_dict()
-        self.callsite_path_map = self.df.set_index("name")["path"].to_dict()
+        # self.module_id_map = {}
 
-        self.run()
+        self.compute()
+
+    def compute(self):
+        group_path = {}
+        component_path = {}
+        component_level = {}
+        entry_func = {}
+        show_node = {}
+        node_name = {}
+        module = {}
+        change_name = {}
+
+        # module_idx = {}
+        # module_id_map = {}
+        # module_count = 0
+
+        LOGGER.debug(
+            f"Nodes: {len(self.gf.nxg.nodes())}, Edges: {len(self.gf.nxg.edges())}"
+        )
+
+        for idx, edge in enumerate(self.gf.nxg.edges()):
+            snode = edge[0]
+            tnode = edge[1]
+
+            if "/" in snode:
+                snode = snode.split("/")[-1]
+            if "/" in tnode:
+                tnode = tnode.split("/")[-1]
+
+            spath = self.callsite_path_map[snode]
+            tpath = self.callsite_path_map[tnode]
+
+            stage1 = time.perf_counter()
+            temp_group_path_results = self.create_group_path(spath)
+            group_path[snode] = temp_group_path_results
+            stage2 = time.perf_counter()
+
+            stage3 = time.perf_counter()
+            component_path[snode] = self.create_component_path(spath, group_path[snode])
+            component_level[snode] = len(component_path[snode])
+            stage4 = time.perf_counter()
+
+            temp_group_path_results = self.create_group_path(tpath)
+            group_path[tnode] = temp_group_path_results
+
+            component_path[tnode] = self.create_component_path(tpath, group_path[tnode])
+            component_level[tnode] = len(component_path[tnode])
+
+            if component_level[snode] == 2:
+                entry_func[snode] = True
+                show_node[snode] = True
+            else:
+                entry_func[snode] = False
+                show_node[snode] = False
+
+            node_name[snode] = self.callsite_module_map[snode] + "=" + snode
+
+            # TODO: remove if not used.
+            # if module[tnode] not in module_id_map:
+            #     module_count += 1
+            #     module_id_map[module[tnode]] = module_count
+            #     module_idx[tnode] = module_id_map[module[tnode]]
+            # else:
+            #     module_idx[tnode] = module_id_map[module[tnode]]
+
+            if component_level[tnode] == 2:
+                entry_func[tnode] = True
+                show_node[tnode] = True
+            else:
+                entry_func[tnode] = False
+                show_node[tnode] = False
+
+            node_name[tnode] = self.callsite_module_map[snode] + "=" + tnode
+
+        self.update_df("group_path", group_path)
+        self.update_df("component_path", component_path)
+        self.update_df("show_node", entry_func)
+        self.update_df("vis_name", node_name)
+        self.update_df("component_level", component_level)
+        # self.update_df("mod_index", module_idx)
+        self.update_df("entry_function", entry_func)
 
     def create_group_path(self, path):
         if isinstance(path, str):
@@ -137,81 +209,3 @@ class Group(GraphFrame):
         self.gf.df[col_name] = self.gf.df["name"].apply(
             lambda node: mapping[node] if node in mapping.keys() else ""
         )
-
-    def run(self):
-        group_path = {}
-        component_path = {}
-        component_level = {}
-        entry_func = {}
-        show_node = {}
-        node_name = {}
-        module = {}
-        change_name = {}
-        module_idx = {}
-        source_nid = {}
-
-        module_id_map = {}
-        module_count = 0
-
-        LOGGER.debug(f"Nodes: {len(self.nxg.nodes())}, Edges: {len(self.nxg.edges())}")
-
-        for idx, edge in enumerate(self.gf.nxg.edges()):
-            snode = edge[0]
-            tnode = edge[1]
-
-            if "/" in snode:
-                snode = snode.split("/")[-1]
-            if "/" in tnode:
-                tnode = tnode.split("/")[-1]
-
-            spath = self.callsite_path_map[snode]
-            tpath = self.callsite_path_map[tnode]
-
-            stage1 = time.perf_counter()
-            temp_group_path_results = self.create_group_path(spath)
-            group_path[snode] = temp_group_path_results
-            stage2 = time.perf_counter()
-
-            stage3 = time.perf_counter()
-            component_path[snode] = self.create_component_path(spath, group_path[snode])
-            component_level[snode] = len(component_path[snode])
-            stage4 = time.perf_counter()
-
-            temp_group_path_results = self.create_group_path(tpath)
-            group_path[tnode] = temp_group_path_results
-
-            component_path[tnode] = self.create_component_path(tpath, group_path[tnode])
-            component_level[tnode] = len(component_path[tnode])
-
-            if component_level[snode] == 2:
-                entry_func[snode] = True
-                show_node[snode] = True
-            else:
-                entry_func[snode] = False
-                show_node[snode] = False
-
-            node_name[snode] = self.callsite_module_map[snode] + "=" + snode
-
-            # if module[tnode] not in module_id_map:
-            #     module_count += 1
-            #     module_id_map[module[tnode]] = module_count
-            #     module_idx[tnode] = module_id_map[module[tnode]]
-            # else:
-            #     module_idx[tnode] = module_id_map[module[tnode]]
-
-            if component_level[tnode] == 2:
-                entry_func[tnode] = True
-                show_node[tnode] = True
-            else:
-                entry_func[tnode] = False
-                show_node[tnode] = False
-
-            node_name[tnode] = self.callsite_module_map[snode] + "=" + tnode
-
-        self.update_df("group_path", group_path)
-        self.update_df("component_path", component_path)
-        self.update_df("show_node", entry_func)
-        self.update_df("vis_name", node_name)
-        self.update_df("component_level", component_level)
-        self.update_df("mod_index", module_idx)
-        self.update_df("entry_function", entry_func)

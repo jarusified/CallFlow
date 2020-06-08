@@ -14,10 +14,7 @@ class Filter:
         self.gf = gf
         self.filter_perc = filter_perc
 
-        if mode == "ensemble":
-            self.set_max_min_times_ensemble()
-        elif mode == "single":
-            self.set_max_min_times_single()
+        self.set_max_min_times()
 
         if filter_by == "time (inc)":
             self.gf.df = self.df_by_time_inc()
@@ -26,7 +23,7 @@ class Filter:
             self.gf.df = self.df_by_time()
             self.gf.nxg = self.graph_by_time()
 
-    def set_max_min_times_single(self):
+    def set_max_min_times(self):
         self.max_time_inc_list = np.array([])
         self.min_time_inc_list = np.array([])
         self.max_time_exc_list = np.array([])
@@ -45,36 +42,6 @@ class Filter:
             [self.min_time_exc_list, self.gf.df["time"].min()]
         )
 
-        LOGGER.info(f"Min. time (inc): {self.min_time_inc_list}")
-        LOGGER.info(f"Max. time (inc): {self.max_time_inc_list}")
-        LOGGER.info(f"Min. time (exc): {self.min_time_exc_list}")
-        LOGGER.info(f"Max. time (exc): {self.max_time_exc_list}")
-
-        self.max_time_inc = np.max(self.max_time_inc_list)
-        self.min_time_inc = np.min(self.min_time_inc_list)
-        self.max_time_exc = np.max(self.max_time_exc_list)
-        self.min_time_exc = np.min(self.min_time_exc_list)
-
-    def set_max_min_times_ensemble(self):
-        self.max_time_inc_list = np.array([])
-        self.min_time_inc_list = np.array([])
-        self.max_time_exc_list = np.array([])
-        self.min_time_exc_list = np.array([])
-        count = 0
-        for dataset, df in self.gf.df.groupby(["dataset"]):
-            self.max_time_inc_list = np.hstack(
-                [self.max_time_inc_list, df["time (inc)"].max()]
-            )
-            self.min_time_inc_list = np.hstack(
-                [self.min_time_inc_list, df["time (inc)"].min()]
-            )
-            self.max_time_exc_list = np.hstack(
-                [self.max_time_exc_list, df["time"].max()]
-            )
-            self.min_time_exc_list = np.hstack(
-                [self.min_time_exc_list, df["time"].min()]
-            )
-            count += 1
         LOGGER.info(f"Min. time (inc): {self.min_time_inc_list}")
         LOGGER.info(f"Max. time (inc): {self.max_time_inc_list}")
         LOGGER.info(f"Min. time (exc): {self.min_time_exc_list}")

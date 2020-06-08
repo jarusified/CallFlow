@@ -34,27 +34,10 @@ class Process:
 
     class Builder(object):
         def __init__(self, gf, tag):
-            self.callers = {}
-            self.callees = {}
-            self.frames = {}
-            self.paths = {}
-            self.hatchet_nodes = {}
-
             self.gf = gf
-            self.df = gf.df
-            self.graph = gf.graph
             self.tag = tag
 
-            # Logger Information
-            self.cct_nodes = []
-            self.callgraph_nodes = []
-            self.supergraph_nodes = []
-            self.unmapped_targets = []
-
-            self.callgraph_nodes_np = np.array([])
-            self.cct_nodes_np = np.array([])
             self.graphMapper()
-            self.map = {}
 
         def convertFrameList(self, nodes):
             ret = []
@@ -63,9 +46,12 @@ class Process:
             return ret
 
         def graphMapper(self):
-            graph = self.graph
+            self.callers = {}
+            self.callees = {}
+            self.paths = {}
+            self.hatchet_nodes = {}
 
-            for node in graph.traverse():
+            for node in self.gf.graph.traverse():
                 node_dict = callflow.utils.node_dict_from_frame(node.frame)
 
                 if node_dict["type"] == "loop":
@@ -93,7 +79,7 @@ class Process:
         # Add the path information from the node object
         def add_path(self):
             self.raiseExceptionIfNodeCountNotEqual(self.paths)
-            self.df["path"] = self.df["name"].apply(
+            self.gf.df["path"] = self.gf.df["name"].apply(
                 lambda node_name: callflow.utils.path_list_from_frames(
                     self.paths[node_name]
                 )
@@ -113,8 +99,8 @@ class Process:
             kurtosis_inclusive = {}
             kurtosis_exclusive = {}
 
-            for node_name in self.df["name"].unique():
-                node_df = self.df.loc[self.df["name"] == node_name]
+            for node_name in self.gf.df["name"].unique():
+                node_df = self.gf.df.loc[self.gf.df["name"] == node_name]
 
                 max_incTime = node_df["time"].mean()
                 mean_incTime = node_df["time (inc)"].mean()
@@ -141,51 +127,55 @@ class Process:
                 kurtosis_inclusive[node_name] = kurtosis(node_df["time (inc)"].tolist())
                 kurtosis_exclusive[node_name] = kurtosis(node_df["time"].tolist())
 
-            self.df["imbalance_perc_inclusive"] = self.df["name"].apply(
+            self.gf.df["imbalance_perc_inclusive"] = self.gf.df["name"].apply(
                 lambda name: inclusive[name]
             )
-            self.df["imbalance_perc_exclusive"] = self.df["name"].apply(
+            self.gf.df["imbalance_perc_exclusive"] = self.gf.df["name"].apply(
                 lambda name: exclusive[name]
             )
 
-            self.df["std_deviation_inclusive"] = self.df["name"].apply(
+            self.gf.df["std_deviation_inclusive"] = self.gf.df["name"].apply(
                 lambda name: std_deviation_inclusive[name]
             )
-            self.df["std_deviation_exclusive"] = self.df["name"].apply(
+            self.gf.df["std_deviation_exclusive"] = self.gf.df["name"].apply(
                 lambda name: std_deviation_exclusive[name]
             )
 
-            self.df["skewness_inclusive"] = self.df["name"].apply(
+            self.gf.df["skewness_inclusive"] = self.gf.df["name"].apply(
                 lambda name: skewness_inclusive[name]
             )
-            self.df["skewness_exclusive"] = self.df["name"].apply(
+            self.gf.df["skewness_exclusive"] = self.gf.df["name"].apply(
                 lambda name: skewness_exclusive[name]
             )
 
-            self.df["kurtosis_inclusive"] = self.df["name"].apply(
+            self.gf.df["kurtosis_inclusive"] = self.gf.df["name"].apply(
                 lambda name: kurtosis_inclusive[name]
             )
-            self.df["kurtosis_exclusive"] = self.df["name"].apply(
+            self.gf.df["kurtosis_exclusive"] = self.gf.df["name"].apply(
                 lambda name: kurtosis_exclusive[name]
             )
 
             return self
 
         def add_callers_and_callees(self):
-            self.df["callees"] = self.df["name"].apply(lambda node: self.callees[node])
-            self.df["callers"] = self.df["name"].apply(lambda node: self.callers[node])
+            self.gf.df["callees"] = self.gf.df["name"].apply(
+                lambda node: self.callees[node]
+            )
+            self.gf.df["callers"] = self.gf.df["name"].apply(
+                lambda node: self.callers[node]
+            )
 
             return self
 
         # node_name is different from name in dataframe. So creating a copy of it.
         def add_vis_node_name(self):
-            self.module_group_df = self.df.groupby(["module"])
+            self.module_group_df = self.gf.df.groupby(["module"])
             self.module_callsite_map = self.module_group_df["name"].unique()
 
-            self.name_group_df = self.df.groupby(["name"])
+            self.name_group_df = self.gf.df.groupby(["name"])
             self.callsite_module_map = self.name_group_df["module"].unique().to_dict()
 
-            self.df["vis_node_name"] = self.df["name"].apply(
+            self.gf.df["vis_node_name"] = self.gf.df["name"].apply(
                 lambda name: callflow.utils.sanitize_name(
                     self.callsite_module_map[name][0]
                 )
@@ -195,52 +185,54 @@ class Process:
             return self
 
         def add_node_name_hpctoolkit(self, node_name_map):
-            self.df["node_name"] = self.df["name"].apply(
+            self.gf.df["node_name"] = self.gf.df["name"].apply(
                 lambda name: node_name_map[name]
             )
             return self
 
         def add_module_name_hpctoolkit(self):
-            self.df["module"] = self.df["module"].apply(
+            self.gf.df["module"] = self.gf.df["module"].apply(
                 lambda name: callflow.utils.sanitize_name(name)
             )
             return self
 
         def add_node_name_caliper(self, node_module_map):
-            self.df["node_name"] = self.df["name"].apply(
+            self.gf.df["node_name"] = self.gf.df["name"].apply(
                 lambda name: name_module_map[name]
             )
 
         def add_module_name_caliper(self, module_map):
-            self.df["module"] = self.df["name"].apply(lambda name: module_map[name])
+            self.gf.df["module"] = self.gf.df["name"].apply(
+                lambda name: module_map[name]
+            )
             return self
 
         def add_dataset_name(self):
-            self.df["dataset"] = self.tag
+            self.gf.df["dataset"] = self.tag
             return self
 
         def add_rank_column(self):
-            if "rank" not in self.df.columns:
-                self.df["rank"] = 0
+            if "rank" not in self.gf.df.columns:
+                self.gf.df["rank"] = 0
             return self
 
         def add_time_columns(self):
-            if "time (inc)" not in self.df.columns:
-                self.df["time (inc)"] = self.df["inclusive#time.duration"]
+            if "time (inc)" not in self.gf.df.columns:
+                self.gf.df["time (inc)"] = self.gf.df["inclusive#time.duration"]
 
-            if "time" not in self.df.columns:
-                self.df["time"] = self.df["sum#time.duration"]
+            if "time" not in self.gf.df.columns:
+                self.gf.df["time"] = self.gf.df["sum#time.duration"]
             return self
 
         def create_name_module_map(self):
             self.name_module_map = (
-                self.df.groupby(["name"])["module"].unique().to_dict()
+                self.gf.df.groupby(["name"])["module"].unique().to_dict()
             )
             return self
 
         def raiseExceptionIfNodeCountNotEqual(self, attr):
             map_node_count = len(attr.keys())
-            df_node_count = len(self.df["name"].unique())
+            df_node_count = len(self.gf.df["name"].unique())
             LOGGER.debug(
                 f"[Validation] Map contains: {map_node_count} callsites, graph contains: {df_node_count} callsites"
             )
@@ -252,5 +244,5 @@ class Process:
         def logInformation(self):
             LOGGER.info(f"CCT node count : {len(self.cct_nodes)}")
             LOGGER.info(f"CallGraph node count: {len(self.callgraph_nodes)}")
-            LOGGER.info(f"SuperGraph node count: {len(self.df['module'].unique())}")
+            LOGGER.info(f"SuperGraph node count: {len(self.gf.df['module'].unique())}")
             return self

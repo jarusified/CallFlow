@@ -74,7 +74,7 @@ class EnsembleCallFlow(BaseCallFlow):
             single_datasets[dataset_name].process_gf(gf_type="entire")
 
             # Write the entire graphframe into .callflow.
-            # single_datasets[dataset_name].write_dataset("entire")
+            single_datasets[dataset_name].write_gf("entire")
 
         # Create a dataset for ensemble case.
         ensemble_dataset = EnsembleGraph(self.props, "ensemble")
@@ -83,39 +83,36 @@ class EnsembleCallFlow(BaseCallFlow):
         ensemble_dataset.construct_gf(single_datasets)
 
         # TODO: This call breaks.
-        # ensemble_dataset.write_dataset("entire")
+        ensemble_dataset.write_gf("entire")
 
         # Filter the ensemble graphframe.
         ensemble_dataset.filter_gf(mode="ensemble")
 
         # Write the filtered graphframe.
-        # ensemble_dataset.write_dataset("filter")
+        ensemble_dataset.write_gf("filter")
 
         # Group by module.
         ensemble_dataset.group_gf(gf_type="entire", group_by="module")
 
         # Write the grouped graphframe.
-        # ensemble_dataset.write_dataset("group")
+        ensemble_dataset.write_gf("group")
 
         # Calculate auxiliary information (used by callflow app.)
-        aux = EnsembleAuxiliary(
-            ensemble_dataset,
+        ensemble_dataset.auxiliary(
             # MPIBinCount=self.currentMPIBinCount,
             # RunBinCount=self.currentRunBinCount,
             MPIBinCount=20,
             RunBinCount=20,
-            props=self.props,
             process=True,
             write=True,
         )
-        aux.run()
 
     def _read_datasets(self):
         datasets = {}
         # We are reading once again to make sure we have
         for idx, dataset_name in enumerate(self.props["dataset_names"]):
-            datasets[dataset_name] = Dataset(dataset_name)
-            datasets[dataset_name].read_dataset(gf_type="entire", read_parameters=False)
+            datasets[dataset_name] = Dataset(self.props, dataset_name)
+            datasets[dataset_name].read_gf(gf_type="entire", read_parameters=False)
 
         datasets["ensemble"] = Dataset("ensemble")
         datasets["ensemble"].read_gf("ensemble")
@@ -251,7 +248,7 @@ class EnsembleCallFlow(BaseCallFlow):
                 result = aux.run()
             else:
                 result = self.states["all_data"]
-                # result = aux.filter_dict(result)
+                result = aux.filter_dict(result)
             self.currentMPIBinCount = action["MPIBinCount"]
             self.currentRunBinCount = action["RunBinCount"]
 

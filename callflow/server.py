@@ -449,7 +449,7 @@ class CallFlowServer:
         # CallFlowServer routes
         @app.route("/")
         def root():
-            print("CallFlowServer directory", app.__dir__)
+            LOGGER.debug(f"CallFlowServer directory: {app.__dir__}")
             return send_from_directory(app.__dir__, "index.html")
 
 

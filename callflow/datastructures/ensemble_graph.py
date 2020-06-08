@@ -35,20 +35,12 @@ class EnsembleGraph(Dataset):
         first_dataset = list(self.datasets.keys())[0]
         LOGGER.debug(f"Base for the union operation is: {first_dataset}")
 
-        if gf_type == "entire":
-            self.entire_gf = self.datasets[first_dataset].entire_gf
-            self.entire_gf.df = self.union_df()
-            # There is no way to convert networkX to hatchet graph yet. So we are setting this to None.
-            self.entire_gf.graph = None
-            self.entire_gf.nxg = self.union_nxg()
-            assert isinstance(self.entire_gf, callflow.GraphFrame)
-        elif gf_type == "filter":
-            self.gf = self.datasets[first_dataset].gf
-            self.gf.df = self.union_df()
-            # There is no way to convert networkX to hatchet graph yet. So we are setting this to None.
-            self.gf.graph = None
-            self.gf.nxg = self.union_nxg()
-            assert isinstance(self.gf, callflow.GraphFrame)
+        self.gf = self.datasets[first_dataset].gf
+        self.gf.df = self.union_df()
+        # There is no way to convert networkX to hatchet graph yet. So we are setting this to None.
+        self.gf.graph = None
+        self.gf.nxg = self.union_nxg()
+        assert isinstance(self.gf, callflow.GraphFrame)
 
     def union_df(self):
         """
@@ -56,10 +48,10 @@ class EnsembleGraph(Dataset):
         """
         df = pd.DataFrame([])
         for idx, dataset_name in enumerate(self.datasets):
-            if self.gf_type == "entire":
-                gf = self.datasets[dataset_name].entire_gf
-            elif self.gf_type == "filter":
-                gf = self.datasets[dataset_name].gf
+            # if self.gf_type == "entire":
+            #     gf = self.datasets[dataset_name].entire_gf
+            # elif self.gf_type == "filter":
+            gf = self.datasets[dataset_name].gf
 
             df = pd.concat([df, gf.df], sort=True)
 
@@ -74,7 +66,7 @@ class EnsembleGraph(Dataset):
         for idx, dataset_name in enumerate(self.datasets):
             LOGGER.debug("-=========================-")
             LOGGER.debug(dataset_name)
-            self.union_nxg_recurse(nxg, self.datasets[dataset_name].nxg)
+            self.union_nxg_recurse(nxg, self.datasets[dataset_name].gf.nxg)
 
         return nxg
 

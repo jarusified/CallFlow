@@ -63,6 +63,7 @@ class BaseCallFlow:
 
         if not os.path.exists(self.props["save_path"]):
             os.makedirs(self.props["save_path"])
+            os.makedirs(os.path.join(self.props["save_path"], "ensemble"))
 
         for dataset in self.props["datasets"]:
             dataset_dir = os.path.join(self.props["save_path"], dataset["name"])

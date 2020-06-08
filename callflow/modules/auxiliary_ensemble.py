@@ -30,25 +30,51 @@ from callflow.timer import Timer
 class EnsembleAuxiliary:
     def __init__(
         self,
-        ensemble_dataset,
+        gf,
+        datasets,
+        props,
         MPIBinCount="20",
         RunBinCount="20",
-        datasets=[],
-        props={},
         process=True,
         write=False,
     ):
-        self.timer = Timer()
-        self.df = self.select_rows(ensemble_dataset.entire_gf.df, datasets)
         self.MPIBinCount = MPIBinCount
         self.RunBinCount = RunBinCount
         self.props = props
+        self.datasets = datasets
+        self.timer = Timer()
+        self.df = self.select_rows(gf.df, datasets)
+
         self.process = process
         self.write = write
-        self.datasets = datasets
 
         self.hist_props = ["rank", "name", "dataset", "all_ranks"]
         self.filter = True
+
+        self.compute()
+        print(self.timer)
+
+    def compute(self):
+        ret = {}
+        path = os.path.join(self.props["save_path"], "all_data.json")
+
+        LOGGER.info("Calculating Gradients, Mean runtime variations, and Distribution.")
+        with self.timer.phase("Process data"):
+            self.group_frames()
+        with self.timer.phase("Collect Callsite data"):
+            ret["callsite"] = self.callsite_data()
+        with self.timer.phase("Collect Module data"):
+            ret["module"] = self.module_data()
+        with self.timer.phase("Module callsite map data"):
+            ret["moduleCallsiteMap"] = self.get_module_callsite_map()
+        # with self.timer.phase("Callsite module map data"):
+        #     ret['callsiteModuleMap'] = self.get_callsite_module_map()
+        if self.write:
+            with self.timer.phase("Writing data"):
+                with open(path, "w") as f:
+                    json.dump(ret, f)
+
+        return ret
 
     def filter_dict(self, result):
         ret = {}
@@ -89,6 +115,7 @@ class EnsembleAuxiliary:
             top100callsites = sort_xgroup_df.nlargest(50, "time (inc)")
             self.df = self.df[self.df["name"].isin(top100callsites.index.values)]
 
+        self.df.drop(["rank"], axis=1)
         self.module_name_group_df = self.df.groupby(["module", "name"])
         self.module_group_df = self.df.groupby(["module"])
         self.name_group_df = self.df.groupby(["name"])
@@ -108,239 +135,6 @@ class EnsembleAuxiliary:
             self.target_name_group_df[dataset] = self.target_df[dataset].groupby(
                 ["name"]
             )
-
-    def select_rows(self, df, search_strings):
-        unq, IDs = np.unique(df["dataset"], return_inverse=True)
-        unqIDs = np.searchsorted(unq, search_strings)
-        mask = np.isin(IDs, unqIDs)
-        return df[mask]
-
-    def histogram(self, data, data_min=np.nan, data_max=np.nan):
-        if np.isnan(data_min) or np.isnan(data_max):
-            data_min = data.min()
-            data_max = data.max()
-        h, b = np.histogram(
-            data, range=[data_min, data_max], bins=int(self.MPIBinCount)
-        )
-        return 0.5 * (b[1:] + b[:-1]), h
-
-    def convert_pandas_array_to_list(self, series):
-        return series.apply(lambda d: d.tolist())
-
-    def get_module_callsite_map(self):
-        ret = {}
-        np_data = self.module_group_df["name"].unique()
-        ret["ensemble"] = self.convert_pandas_array_to_list(np_data).to_dict()
-
-        for dataset in self.datasets:
-            np_data = self.target_module_group_df[dataset]["name"].unique()
-            ret[dataset] = self.convert_pandas_array_to_list(np_data).to_dict()
-
-        return ret
-
-    def get_callsite_module_map(self):
-        ret = {}
-        callsites = self.df["name"].unique().tolist()
-        for callsite in callsites:
-            module = (
-                self.df.loc[self.df["name"] == callsite]["module"].unique().tolist()
-            )
-            ret[callsite] = module
-
-        for dataset in self.datasets:
-            ret[dataset] = {}
-            for callsite in callsites:
-                module = (
-                    self.target_df[dataset]
-                    .loc[self.target_df[dataset]["name"] == callsite]["name"]
-                    .unique()
-                    .tolist()
-                )
-                ret[dataset][callsite] = module
-        return ret
-
-    def pack_json(
-        self,
-        df=pd.DataFrame(),
-        name="",
-        gradients={"Inclusive": {}, "Exclusive": {}},
-        prop_hists={"Inclusive": {}, "Exclusive": {}},
-        q={"Inclusive": {}, "Exclusive": {}},
-        outliers={"Inclusive": {}, "Exclusive": {}},
-    ):
-        inclusive_variance = df["time (inc)"].var()
-        exclusive_variance = df["time"].var()
-        inclusive_std_deviation = math.sqrt(df["time (inc)"].var())
-        exclusive_std_deviation = math.sqrt(df["time"].var())
-
-        if math.isnan(inclusive_variance):
-            inclusive_variance = 0
-            inclusive_std_deviation = 0
-        if math.isnan(exclusive_variance):
-            exclusive_variance = 0
-            exclusive_std_deviation = 0
-
-        result = {
-            "name": name,
-            "id": "node-" + str(df["nid"].tolist()[0]),
-            "dataset": df["dataset"].unique().tolist(),
-            "module": df["module"].tolist()[0],
-            "callers": df["callers"].unique().tolist(),
-            "callees": df["callees"].unique().tolist(),
-            "component_path": df["component_path"].unique().tolist(),
-            "component_level": df["component_level"].unique().tolist(),
-            "Inclusive": {
-                "mean_time": df["time (inc)"].mean(),
-                "max_time": df["time (inc)"].max(),
-                "min_time": df["time (inc)"].min(),
-                "variance": inclusive_variance,
-                "q": q["Inclusive"],
-                "outliers": outliers["Inclusive"],
-                # "imbalance_perc": df['imbalance_perc_inclusive'].tolist()[0],
-                "std_deviation": inclusive_std_deviation,
-                # "kurtosis": df['kurtosis_inclusive'].tolist()[0],
-                # "skewness": df['skewness_inclusive'].tolist()[0],
-                "gradients": gradients["Inclusive"],
-                "prop_histograms": prop_hists["Inclusive"],
-            },
-            "Exclusive": {
-                "mean_time": df["time"].mean(),
-                "max_time": df["time"].max(),
-                "min_time": df["time"].min(),
-                "variance": exclusive_variance,
-                "q": q["Exclusive"],
-                "outliers": outliers["Exclusive"],
-                # "imbalance_perc": df['imbalance_perc_exclusive'].tolist()[0],
-                "std_deviation": exclusive_std_deviation,
-                # "skewness": df['skewness_exclusive'].tolist()[0],
-                # "kurtosis": df['kurtosis_exclusive'].tolist()[0],
-                "gradients": gradients["Exclusive"],
-                "prop_histograms": prop_hists["Exclusive"],
-            },
-        }
-        return result
-
-    # Return the histogram in the required form.
-    def histogram_format(self, histogram_grid):
-        return {
-            "x": histogram_grid[0].tolist(),
-            "y": histogram_grid[1].tolist(),
-            "x_min": histogram_grid[0][0],
-            "x_max": histogram_grid[0][-1],
-            "y_min": np.min(histogram_grid[1]).astype(np.float64),
-            "y_max": np.max(histogram_grid[1]).astype(np.float64),
-        }
-
-    # Prop can be dataset, rank, name
-    def histogram_by_property_ensemble(self, ensemble_df, prop):
-        ret = {}
-
-        if prop == "all_ranks":
-            time_ensemble_inclusive_arr = np.array(ensemble_df["time (inc)"].tolist())
-            time_ensemble_exclusive_arr = np.array(ensemble_df["time"].tolist())
-
-        elif prop == "rank":
-            ensemble_prop = ensemble_df.groupby(["dataset", prop])[
-                ["time", "time (inc)"]
-            ].mean()
-            time_ensemble_inclusive_arr = np.array(ensemble_prop["time (inc)"])
-            time_ensemble_exclusive_arr = np.array(ensemble_prop["time"])
-
-        else:
-            ensemble_prop = ensemble_df.groupby([prop])[["time", "time (inc)"]].mean()
-
-            time_ensemble_inclusive_arr = np.array(ensemble_prop["time (inc)"])
-            time_ensemble_exclusive_arr = np.array(ensemble_prop["time"])
-
-        inclusive_max = time_ensemble_inclusive_arr.max()
-        inclusive_min = time_ensemble_inclusive_arr.min()
-
-        histogram_ensemble_inclusive_grid = self.histogram(
-            time_ensemble_inclusive_arr, inclusive_min, inclusive_max
-        )
-
-        exclusive_max = time_ensemble_exclusive_arr.max()
-        exclusive_min = time_ensemble_exclusive_arr.min()
-        histogram_ensemble_exclusive_grid = self.histogram(
-            time_ensemble_exclusive_arr, exclusive_min, exclusive_max
-        )
-
-        ret["Inclusive"] = {
-            "ensemble": self.histogram_format(histogram_ensemble_inclusive_grid),
-        }
-        ret["Exclusive"] = {
-            "ensemble": self.histogram_format(histogram_ensemble_exclusive_grid),
-        }
-        return ret
-
-    # Prop can be dataset, rank, name
-    def histogram_by_property(self, ensemble_df, target_df, prop):
-        ret = {}
-
-        if prop == "all_ranks":
-            time_ensemble_inclusive_arr = np.array(ensemble_df["time (inc)"].tolist())
-            time_ensemble_exclusive_arr = np.array(ensemble_df["time"].tolist())
-
-            time_target_inclusive_arr = np.array(target_df["time (inc)"].tolist())
-            time_target_exclusive_arr = np.array(target_df["time"].tolist())
-        elif prop == "rank":
-            ensemble_prop = ensemble_df.groupby(["dataset", prop])[
-                ["time", "time (inc)"]
-            ].mean()
-            target_prop = target_df.groupby(["dataset", prop])[
-                ["time", "time (inc)"]
-            ].mean()
-
-            time_ensemble_inclusive_arr = np.array(ensemble_prop["time (inc)"])
-            time_ensemble_exclusive_arr = np.array(ensemble_prop["time"])
-
-            time_target_inclusive_arr = np.array(target_prop["time (inc)"])
-            time_target_exclusive_arr = np.array(target_prop["time"])
-        else:
-            ensemble_prop = ensemble_df.groupby([prop])[["time", "time (inc)"]].mean()
-            target_prop = target_df.groupby([prop])[["time", "time (inc)"]].mean()
-
-            time_ensemble_inclusive_arr = np.array(ensemble_prop["time (inc)"])
-            time_ensemble_exclusive_arr = np.array(ensemble_prop["time"])
-
-            time_target_inclusive_arr = np.array(target_prop["time (inc)"])
-            time_target_exclusive_arr = np.array(target_prop["time"])
-
-        inclusive_max = max(
-            time_ensemble_inclusive_arr.max(), time_target_inclusive_arr.max()
-        )
-        inclusive_min = min(
-            time_ensemble_inclusive_arr.min(), time_target_inclusive_arr.min()
-        )
-        histogram_ensemble_inclusive_grid = self.histogram(
-            time_ensemble_inclusive_arr, inclusive_min, inclusive_max
-        )
-        histogram_target_inclusive_grid = self.histogram(
-            time_target_inclusive_arr, inclusive_min, inclusive_max
-        )
-
-        exclusive_max = max(
-            time_ensemble_exclusive_arr.max(), time_target_exclusive_arr.max()
-        )
-        exclusive_min = min(
-            time_ensemble_exclusive_arr.min(), time_target_exclusive_arr.min()
-        )
-        histogram_ensemble_exclusive_grid = self.histogram(
-            time_ensemble_exclusive_arr, exclusive_min, exclusive_max
-        )
-        histogram_target_exclusive_grid = self.histogram(
-            time_target_exclusive_arr, exclusive_min, exclusive_max
-        )
-
-        ret["Inclusive"] = {
-            "ensemble": self.histogram_format(histogram_ensemble_inclusive_grid),
-            "target": self.histogram_format(histogram_target_inclusive_grid),
-        }
-        ret["Exclusive"] = {
-            "ensemble": self.histogram_format(histogram_ensemble_exclusive_grid),
-            "target": self.histogram_format(histogram_target_exclusive_grid),
-        }
-        return ret
 
     # Callsite grouped information
     def callsite_data(self):
@@ -458,29 +252,239 @@ class EnsembleAuxiliary:
 
         return ret
 
-    def run(self):
+    def select_rows(self, df, search_strings):
+        unq, IDs = np.unique(df["dataset"], return_inverse=True)
+        unqIDs = np.searchsorted(unq, search_strings)
+        mask = np.isin(IDs, unqIDs)
+        return df[mask]
+
+    def histogram(self, data, data_min=np.nan, data_max=np.nan):
+        if np.isnan(data_min) or np.isnan(data_max):
+            data_min = data.min()
+            data_max = data.max()
+        h, b = np.histogram(
+            data, range=[data_min, data_max], bins=int(self.MPIBinCount)
+        )
+        return 0.5 * (b[1:] + b[:-1]), h
+
+    def convert_pandas_array_to_list(self, series):
+        return series.apply(lambda d: d.tolist())
+
+    def get_module_callsite_map(self):
         ret = {}
-        path = os.path.join(self.props["save_path"], "all_data.json")
+        np_data = self.module_group_df["name"].unique()
+        ret["ensemble"] = self.convert_pandas_array_to_list(np_data).to_dict()
 
-        if self.process:
-            LOGGER.info(
-                "Calculating Gradients, Mean runtime variations, and Distribution."
+        for dataset in self.datasets:
+            np_data = self.target_module_group_df[dataset]["name"].unique()
+            ret[dataset] = self.convert_pandas_array_to_list(np_data).to_dict()
+
+        return ret
+
+    def get_callsite_module_map(self):
+        ret = {}
+        callsites = self.df["name"].unique().tolist()
+        for callsite in callsites:
+            module = (
+                self.df.loc[self.df["name"] == callsite]["module"].unique().tolist()
             )
-            with self.timer.phase("Process data"):
-                self.group_frames()
-            with self.timer.phase("Collect Callsite data"):
-                ret["callsite"] = self.callsite_data()
-            with self.timer.phase("Collect Module data"):
-                ret["module"] = self.module_data()
-            with self.timer.phase("Module callsite map data"):
-                ret["moduleCallsiteMap"] = self.get_module_callsite_map()
-            # with self.timer.phase("Callsite module map data"):
-            #     ret['callsiteModuleMap'] = self.get_callsite_module_map()
-            if self.write:
-                with self.timer.phase("Writing data"):
-                    with open(path, "w") as f:
-                        json.dump(ret, f)
+            ret[callsite] = module
 
-            LOGGER.debug(self.timer)
+        for dataset in self.datasets:
+            ret[dataset] = {}
+            for callsite in callsites:
+                module = (
+                    self.target_df[dataset]
+                    .loc[self.target_df[dataset]["name"] == callsite]["name"]
+                    .unique()
+                    .tolist()
+                )
+                ret[dataset][callsite] = module
+        return ret
 
+    def pack_json(
+        self,
+        df=pd.DataFrame(),
+        name="",
+        gradients={"Inclusive": {}, "Exclusive": {}},
+        prop_hists={"Inclusive": {}, "Exclusive": {}},
+        q={"Inclusive": {}, "Exclusive": {}},
+        outliers={"Inclusive": {}, "Exclusive": {}},
+    ):
+        inclusive_variance = df["time (inc)"].var()
+        exclusive_variance = df["time"].var()
+        inclusive_std_deviation = math.sqrt(df["time (inc)"].var())
+        exclusive_std_deviation = math.sqrt(df["time"].var())
+
+        if math.isnan(inclusive_variance):
+            inclusive_variance = 0
+            inclusive_std_deviation = 0
+        if math.isnan(exclusive_variance):
+            exclusive_variance = 0
+            exclusive_std_deviation = 0
+
+        result = {
+            "name": name,
+            "id": "node-" + str(df["nid"].tolist()[0]),
+            "dataset": df["dataset"].unique().tolist(),
+            "module": df["module"].tolist()[0],
+            # "callers": df["callers"].unique().tolist(),
+            # "callees": df["callees"].unique().tolist(),
+            "component_path": df["component_path"].unique().tolist(),
+            "component_level": df["component_level"].unique().tolist(),
+            "Inclusive": {
+                "mean_time": df["time (inc)"].mean(),
+                "max_time": df["time (inc)"].max(),
+                "min_time": df["time (inc)"].min(),
+                "variance": inclusive_variance,
+                "q": q["Inclusive"],
+                "outliers": outliers["Inclusive"],
+                # "imbalance_perc": df['imbalance_perc_inclusive'].tolist()[0],
+                "std_deviation": inclusive_std_deviation,
+                # "kurtosis": df['kurtosis_inclusive'].tolist()[0],
+                # "skewness": df['skewness_inclusive'].tolist()[0],
+                "gradients": gradients["Inclusive"],
+                "prop_histograms": prop_hists["Inclusive"],
+            },
+            "Exclusive": {
+                "mean_time": df["time"].mean(),
+                "max_time": df["time"].max(),
+                "min_time": df["time"].min(),
+                "variance": exclusive_variance,
+                "q": q["Exclusive"],
+                "outliers": outliers["Exclusive"],
+                # "imbalance_perc": df['imbalance_perc_exclusive'].tolist()[0],
+                "std_deviation": exclusive_std_deviation,
+                # "skewness": df['skewness_exclusive'].tolist()[0],
+                # "kurtosis": df['kurtosis_exclusive'].tolist()[0],
+                "gradients": gradients["Exclusive"],
+                "prop_histograms": prop_hists["Exclusive"],
+            },
+        }
+        return result
+
+    # Return the histogram in the required form.
+    def histogram_format(self, histogram_grid):
+        return {
+            "x": histogram_grid[0].tolist(),
+            "y": histogram_grid[1].tolist(),
+            "x_min": histogram_grid[0][0],
+            "x_max": histogram_grid[0][-1],
+            "y_min": np.min(histogram_grid[1]).astype(np.float64),
+            "y_max": np.max(histogram_grid[1]).astype(np.float64),
+        }
+
+    # Prop can be dataset, rank, name
+    def histogram_by_property_ensemble(self, ensemble_df, prop):
+        ret = {}
+
+        if prop == "all_ranks":
+            time_ensemble_inclusive_arr = np.array(ensemble_df["time (inc)"].tolist())
+            time_ensemble_exclusive_arr = np.array(ensemble_df["time"].tolist())
+
+        elif prop == "rank":
+            ensemble_df.reset_index(drop=True, inplace=True)
+            ensemble_prop = ensemble_df.groupby(["dataset", prop])[
+                ["time", "time (inc)"]
+            ].mean()
+            time_ensemble_inclusive_arr = np.array(ensemble_prop["time (inc)"])
+            time_ensemble_exclusive_arr = np.array(ensemble_prop["time"])
+
+        else:
+            ensemble_prop = ensemble_df.groupby([prop])[["time", "time (inc)"]].mean()
+
+            time_ensemble_inclusive_arr = np.array(ensemble_prop["time (inc)"])
+            time_ensemble_exclusive_arr = np.array(ensemble_prop["time"])
+
+        inclusive_max = time_ensemble_inclusive_arr.max()
+        inclusive_min = time_ensemble_inclusive_arr.min()
+
+        histogram_ensemble_inclusive_grid = self.histogram(
+            time_ensemble_inclusive_arr, inclusive_min, inclusive_max
+        )
+
+        exclusive_max = time_ensemble_exclusive_arr.max()
+        exclusive_min = time_ensemble_exclusive_arr.min()
+        histogram_ensemble_exclusive_grid = self.histogram(
+            time_ensemble_exclusive_arr, exclusive_min, exclusive_max
+        )
+
+        ret["Inclusive"] = {
+            "ensemble": self.histogram_format(histogram_ensemble_inclusive_grid),
+        }
+        ret["Exclusive"] = {
+            "ensemble": self.histogram_format(histogram_ensemble_exclusive_grid),
+        }
+        return ret
+
+    # Prop can be dataset, rank, name
+    def histogram_by_property(self, ensemble_df, target_df, prop):
+        ret = {}
+
+        if prop == "all_ranks":
+            time_ensemble_inclusive_arr = np.array(ensemble_df["time (inc)"].tolist())
+            time_ensemble_exclusive_arr = np.array(ensemble_df["time"].tolist())
+
+            time_target_inclusive_arr = np.array(target_df["time (inc)"].tolist())
+            time_target_exclusive_arr = np.array(target_df["time"].tolist())
+        elif prop == "rank":
+            ensemble_df.reset_index(drop=True, inplace=True)
+            ensemble_prop = ensemble_df.groupby(["dataset", prop])[
+                ["time", "time (inc)"]
+            ].mean()
+
+            target_df.reset_index(drop=True, inplace=True)
+            target_prop = target_df.groupby(["dataset", prop])[
+                ["time", "time (inc)"]
+            ].mean()
+
+            time_ensemble_inclusive_arr = np.array(ensemble_prop["time (inc)"])
+            time_ensemble_exclusive_arr = np.array(ensemble_prop["time"])
+
+            time_target_inclusive_arr = np.array(target_prop["time (inc)"])
+            time_target_exclusive_arr = np.array(target_prop["time"])
+        else:
+            ensemble_prop = ensemble_df.groupby([prop])[["time", "time (inc)"]].mean()
+            target_prop = target_df.groupby([prop])[["time", "time (inc)"]].mean()
+
+            time_ensemble_inclusive_arr = np.array(ensemble_prop["time (inc)"])
+            time_ensemble_exclusive_arr = np.array(ensemble_prop["time"])
+
+            time_target_inclusive_arr = np.array(target_prop["time (inc)"])
+            time_target_exclusive_arr = np.array(target_prop["time"])
+
+        inclusive_max = max(
+            time_ensemble_inclusive_arr.max(), time_target_inclusive_arr.max()
+        )
+        inclusive_min = min(
+            time_ensemble_inclusive_arr.min(), time_target_inclusive_arr.min()
+        )
+        histogram_ensemble_inclusive_grid = self.histogram(
+            time_ensemble_inclusive_arr, inclusive_min, inclusive_max
+        )
+        histogram_target_inclusive_grid = self.histogram(
+            time_target_inclusive_arr, inclusive_min, inclusive_max
+        )
+
+        exclusive_max = max(
+            time_ensemble_exclusive_arr.max(), time_target_exclusive_arr.max()
+        )
+        exclusive_min = min(
+            time_ensemble_exclusive_arr.min(), time_target_exclusive_arr.min()
+        )
+        histogram_ensemble_exclusive_grid = self.histogram(
+            time_ensemble_exclusive_arr, exclusive_min, exclusive_max
+        )
+        histogram_target_exclusive_grid = self.histogram(
+            time_target_exclusive_arr, exclusive_min, exclusive_max
+        )
+
+        ret["Inclusive"] = {
+            "ensemble": self.histogram_format(histogram_ensemble_inclusive_grid),
+            "target": self.histogram_format(histogram_target_inclusive_grid),
+        }
+        ret["Exclusive"] = {
+            "ensemble": self.histogram_format(histogram_ensemble_exclusive_grid),
+            "target": self.histogram_format(histogram_target_exclusive_grid),
+        }
         return ret

@@ -18,7 +18,7 @@ class GraphFrame(ht.GraphFrame):
             self.df = self.dataframe
 
         # save a networkx graph
-        self.nxg = None
+        self.nxg = self.from_hatchet_graph(graph)
 
     # --------------------------------------------------------------------------
     # Hatchet's GraphFrame utilities.
