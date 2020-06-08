@@ -9,6 +9,9 @@ class SuperGraph(Dataset):
         # save a networkx graph
         self.nxg = None
 
+    def create(self):
+        pass 
+    
     @staticmethod
     def _create_source_targets(self, path):
         module = ""

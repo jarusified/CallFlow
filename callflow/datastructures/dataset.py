@@ -15,7 +15,7 @@ LOGGER = callflow.get_logger(__name__)
 class Dataset(object):
     def __init__(self, props={}, tag=""):
 
-        # it appears we're using name as "union", "filter", etc.
+        # it appears we're using name as "union", "filter", etc. 
         # this is not a data set name!
         self.tag = tag
         self.props = props
@@ -198,7 +198,7 @@ class Dataset(object):
         return callsites_df.index.values.tolist()
 
     def read_gf(
-        self, gf_type="entire", read_df=True, read_nxg=True, read_parameters=True
+        self, gf_type="entire", read_df=True, read_nxg=True, read_parameter=True
     ):
         """
         # Read a single dataset stored in .callflow directory.
@@ -222,7 +222,7 @@ class Dataset(object):
             nxg = json_graph.node_link_graph(graph)
             assert nxg != None
 
-        if read_parameters:
+        if read_parameter:
             parameters_filepath = os.path.join(self.dirname, self.tag, "env_params.txt")
             projection_data = {}
             for line in open(parameters_filepath, "r"):
@@ -251,7 +251,7 @@ class Dataset(object):
             gf.df.to_csv(df_file_path)
 
         # TODO: Writing fails.
-        if not write_nxg:
+        if write_nxg:
             nxg_file_name = gf_type + "_nxg.json"
             nxg_file_path = os.path.join(dirname, self.tag, nxg_file_name)
             nxg_data = json_graph.node_link_data(self.gf.nxg)
@@ -261,7 +261,7 @@ class Dataset(object):
         if not write_graph:
             graph_filepath = os.path.join(dirname, self.tag, "hatchet_tree.txt")
             with open(graph_filepath, "a") as hatchet_graphFile:
-                hatchet_graphFile.write(gf.tree(color=False))
+                hatchet_graphFile.write(self.gf.tree(color=False))
 
     def writeSimilarity(self, datasets, states, type):
         """
@@ -285,7 +285,7 @@ class Dataset(object):
         """
         # Read the auxiliary data from all_data.json. 
         """
-        all_data_filepath = os.path.join(self.config.save_path, "all_data.json")
+        all_data_filepath = os.path.join(self.props["save_path"], "auxiliary_data.json")
         LOGGER.info(f"[Read] {all_data_filepath}")
         with open(all_data_filepath, "r") as filter_graphFile:
             data = json.load(filter_graphFile)

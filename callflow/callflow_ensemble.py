@@ -80,9 +80,9 @@ class EnsembleCallFlow(BaseCallFlow):
         ensemble_dataset = EnsembleGraph(self.props, "ensemble")
 
         # Construct a ensemble of datasets
-        ensemble_dataset.construct_gf(single_datasets)
+        ensemble_dataset.create(single_datasets)
 
-        # TODO: This call breaks.
+        # Write the graphframe to file. 
         ensemble_dataset.write_gf("entire")
 
         # Filter the ensemble graphframe.
@@ -109,18 +109,19 @@ class EnsembleCallFlow(BaseCallFlow):
 
     def _read_datasets(self):
         datasets = {}
+        print(self.props["read_parameter"])
         # We are reading once again to make sure we have
         for idx, dataset_name in enumerate(self.props["dataset_names"]):
             datasets[dataset_name] = Dataset(self.props, dataset_name)
-            datasets[dataset_name].read_gf(gf_type="entire", read_parameters=False)
+            datasets[dataset_name].read_gf(gf_type="entire", read_parameter=self.props["read_parameter"])
 
-        datasets["ensemble"] = Dataset("ensemble")
-        datasets["ensemble"].read_gf("ensemble")
-        states["ensemble_filter"] = self.pipeline.read_ensemble_gf("ensemble_filter")
-        states["ensemble_group"] = self.pipeline.read_ensemble_gf("ensemble_group")
-        states["all_data"] = self.pipeline.read_all_data()
+        datasets["ensemble"] = Dataset(self.props, "ensemble")
+        datasets["ensemble"].read_gf("entire", read_parameter=self.props["read_parameter"])
+        datasets["ensemble"].read_gf("filter", read_parameter=self.props["read_parameter"])
+        datasets["ensemble"].read_gf("group", read_parameter=self.props["read_parameter"])
+        datasets["ensemble"].read_auxiliary_data()
 
-        return states
+        return datasets
 
     # Write individual functiosn to do this.
     def _request(self, operation):
@@ -314,6 +315,6 @@ class EnsembleCallFlow(BaseCallFlow):
         """
         self.target_df = {}
         for dataset in self.props["dataset_names"]:
-            self.target_df[dataset] = self.datasets["ensemble_entire"].new_gf.df.loc[
-                self.datasets["ensemble_entire"].new_gf.df["dataset"] == dataset
+            self.target_df[dataset] = self.datasets["ensemble"].gf.df.loc[
+                self.datasets["ensemble"].gf.df["dataset"] == dataset
             ]

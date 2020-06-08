@@ -10,10 +10,12 @@ LOGGER = callflow.get_logger(__name__)
 # Should contain the vector that stores the properties as explained in paper.
 # should contain a function `create` which contains the
 class EnsembleGraph(Dataset):
-    def __init__(self, props, tag):
+    def __init__(self, props={}, tag=""):
         super().__init__(props, tag)
+        # this stores the mapping for each run's data (i.e., Dataset)
         self.datasets = {}
-        self.vector = {}  # For each callsite we store the vector here.
+        # For each callsite we store the vector here.
+        self.vector = {}  
 
     def _getter(self, gf_type="entire"):
         pass
@@ -21,7 +23,7 @@ class EnsembleGraph(Dataset):
     def _setter(self, gf_type="entire"):
         pass
 
-    def construct_gf(self, datasets, gf_type="entire"):
+    def create(self, datasets, gf_type="entire"):
         """
         Ensemble the graphframes. 
         """
@@ -40,6 +42,7 @@ class EnsembleGraph(Dataset):
         # There is no way to convert networkX to hatchet graph yet. So we are setting this to None.
         self.gf.graph = None
         self.gf.nxg = self.union_nxg()
+        
         assert isinstance(self.gf, callflow.GraphFrame)
 
     def union_df(self):

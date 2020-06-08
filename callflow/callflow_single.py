@@ -64,9 +64,9 @@ class SingleCallFlow(BaseCallFlow):
         dataset.write_gf("entire")
 
     def _read_datasets(self):
-        dataset_name = self.props.dataset_name
-        dataset = Dataset()
-        dataset.read_gf(dataset)
+        dataset_name = self.props["dataset_names"][0]
+        dataset = Dataset(self.props, dataset_name)
+        dataset.read_gf(gf_type="entire", read_parameter=self.props["read_parameter"])
         return dataset
 
     def _request(self, action):
