@@ -196,7 +196,7 @@ class SuperGraph(Dataset):
     def add_paths(self, path):
         pass
 
-    def add_reveal_paths()
+    def add_reveal_paths():
         pass
 
     def add_entry_callsite():
