@@ -98,13 +98,16 @@ class SingleAuxiliary:
             hist_inc_grid = self.histogram(time_inc_target_arr)
             hist_exc_grid = self.histogram(time_exc_target_arr)
 
+        if 'rank' not in group_df.keys():
+            group_df = group_df.reset_index(drop=False)
+
         result = {
             "name": node_name,
             "time (inc)": group_df["time (inc)"].tolist(),
             "time": group_df["time"].tolist(),
             "sorted_time (inc)": group_df["time (inc)"].sort_values().tolist(),
             "sorted_time": group_df["time"].sort_values().tolist(),
-            # "rank": group_df["rank"].tolist(),
+            "rank": group_df["rank"].tolist(),
             "id": "node-" + str(group_df["nid"].tolist()[0]),
             "mean_time (inc)": group_df["time (inc)"].mean(),
             "mean_time": group_df["time"].mean(),
@@ -170,7 +173,7 @@ class SingleAuxiliary:
         ret = {}
         path = (
             self.props["save_path"]
-            + f"/{self.dataset}/all_data.json"
+            + f"/{self.dataset}/auxiliary_data.json"
         )
 
         # self.process = True

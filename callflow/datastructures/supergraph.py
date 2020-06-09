@@ -34,6 +34,7 @@ class SuperGraph(object):
         elif mode == "render":
             data = self.read_gf(read_parameter=self.props["read_parameter"])
             self.create_gf(data)
+            self.auxiliary_data = self.read_auxiliary_data()
 
         self.projection_data = {}
 
@@ -125,13 +126,12 @@ class SuperGraph(object):
         assert isinstance(filter_res.gf, callflow.GraphFrame)
         self.gf = filter_res.gf
 
-    def auxiliary(self, datasets, MPIBinCount=20, RunBinCount=20, process=True, write=True):
+    def ensemble_auxiliary(self, datasets, MPIBinCount=20, RunBinCount=20, process=True, write=True):
         EnsembleAuxiliary(self.gf, datasets=datasets, props=self.props, MPIBinCount=MPIBinCount, RunBinCount=RunBinCount, process=process, write=write)
 
     def single_auxiliary(self, dataset="", binCount=20, process=True):
         SingleAuxiliary(self.gf, dataset=dataset, props=self.props, MPIBinCount=binCount, process=process)
 
-    
     def get_top_n_callsites_by_attr(self, count, sort_attr):
         """
         Returns an array of callsites (sorted by `sort_attr`)
@@ -228,7 +228,7 @@ class SuperGraph(object):
         """
         # Read the auxiliary data from all_data.json. 
         """
-        all_data_filepath = os.path.join(self.props["save_path"], "auxiliary_data.json")
+        all_data_filepath = os.path.join(self.props["save_path"], self.tag, "auxiliary_data.json")
         LOGGER.info(f"[Read] {all_data_filepath}")
         with open(all_data_filepath, "r") as filter_graphFile:
             data = json.load(filter_graphFile)

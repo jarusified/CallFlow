@@ -286,12 +286,12 @@ class CallFlowServer:
 
             dataset = data["dataset"]
             groupBy = data["groupBy"].lower()
-            nxg = self.callflow.request(
+            nxg = self.callflow.request_single(
                 {"name": "supergraph", "groupBy": groupBy, "dataset": dataset}
             )
             result = json_graph.node_link_data(nxg)
-            # json_result = json.dumps(result)
-            emit("single_supergraph", result, json=True)
+            json_result = json.dumps(result)
+            emit("single_supergraph", json_result, json=True)
 
     def _request_handler_ensemble(self):
         @sockets.on("ensemble_callsite_data", namespace="/")

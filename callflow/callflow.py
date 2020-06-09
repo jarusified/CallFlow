@@ -116,7 +116,7 @@ class CallFlow:
         ensemble_supergraph.write_gf("group")
 
         # Calculate auxiliary information (used by callflow app.)
-        ensemble_supergraph.auxiliary(
+        ensemble_supergraph.ensemble_auxiliary(
             # MPIBinCount=self.currentMPIBinCount,
             # RunBinCount=self.currentRunBinCount,
             datasets=self.props["dataset_names"],
@@ -225,7 +225,7 @@ class CallFlow:
                 "df.csv",
                 "nxg.json",
                 "hatchet_tree.txt",
-                "all_data.json"
+                "auxiliary_data.json"
             ]
             for f in files:
                 fname = os.path.join(dataset_dir, f)
@@ -271,19 +271,10 @@ class CallFlow:
             return {}
 
         elif operation_tag == "auxiliary":
-            auxiliary = EnsembleAuxiliary(
-                supergraphs=self.supergraphs,
-                tag=operation["dataset"],
-                MPIBinCount=operation["binCount"],
-                # dataset=operation["dataset"],
-            )
-            return auxiliary.result
+            return self.supergraphs[dataset].auxiliary_data
 
         elif operation_tag == "supergraph":
-            self.states[dataset].g = SuperGraph(
-                self.states, dataset, "group_path", construct_graph=True, add_data=True
-            ).g
-            return self.states[dataset].g
+            return self.supergraphs[dataset].gf.nxg
 
         elif operation_tag == "mini-histogram":
             minihistogram = MiniHistogram(state)
