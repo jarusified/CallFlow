@@ -120,7 +120,7 @@ class CallFlow:
         supergraphs = {}
         # Only consider the first dataset from the listing.
         dataset_name = self.props["dataset_names"][0]
-        supergraphs[dataset_name] = SuperGraph(self.props, dataset_name)
+        supergraphs[dataset_name] = SuperGraph(props=self.props, tag=dataset_name, mode="render")
 
         return supergraphs
 
@@ -138,7 +138,7 @@ class CallFlow:
                 read_parameter=self.props["read_parameter"]
             )
 
-        supergraphs["ensemble"] = EnsembleGraph(self.props, "ensemble")
+        supergraphs["ensemble"] = EnsembleGraph(props=self.props, tag="ensemble", mode="render")
         supergraphs["ensemble"].read_gf(read_parameter=self.props["read_parameter"])
         supergraphs["ensemble"].read_auxiliary_data()
         return supergraphs

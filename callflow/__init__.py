@@ -9,5 +9,4 @@ from .datastructures.supergraph import SuperGraph
 from .datastructures.ensemblegraph import EnsembleGraph
 from .datastructures.cct import CCT
 
-
-from .main import CallFlow
+from .callflow import CallFlow
