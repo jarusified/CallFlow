@@ -6,17 +6,21 @@ from callflow import GraphFrame, SuperGraph
 LOGGER = callflow.get_logger(__name__)
 
 
-# Mostly derive from supergraph.
-# Should contain the vector that stores the properties as explained in paper.
-# should contain a function `create` which contains the
-# TODO: Change inheritence to supergrpah
 class EnsembleGraph(SuperGraph):
-    def __init__(self, props={}, tag="", mode="process", datasets={}):
-        super().__init__(props, tag, mode, datasets)
+    """
+    TODO: Clean this up.
+    SuperGraph that handles the ensemble processing. 
+    """
+
+    def __init__(self, props={}, tag="", mode="process", supergraphs={}):
         # this stores the mapping for each run's data (i.e., Dataset)
-        self.datasets = datasets
+        self.supergraphs = supergraphs
+        print("aaa")
+
+        super().__init__(props, tag, mode)
+
         # For each callsite we store the vector here.
-        self.vector = {}  
+        self.vector = {}
 
     def _getter(self):
         pass
@@ -26,21 +30,20 @@ class EnsembleGraph(SuperGraph):
 
     def create_gf(self):
         """
-        Ensemble the graphframes. 
+        Create the graphframes for the ensemble operation. 
         """
         # Set the gf as first of the dataset's gf
-        print(self.datasets)
-        first_dataset = list(self.datasets.keys())[0]
+        first_dataset = list(self.supergraphs.keys())[0]
         LOGGER.debug(f"Base for the union operation is: {first_dataset}")
 
-        # TODO: do a deep copy. 
+        # TODO: do a deep copy.
         # Instead of a deep copy, create a new graphframe and return it.
-        self.gf = self.datasets[first_dataset].gf
+        self.gf = self.supergraphs[first_dataset].gf
         self.gf.df = self.union_df()
         # There is no way to convert networkX to hatchet graph yet. So we are setting this to None.
         self.gf.graph = None
         self.gf.nxg = self.union_nxg()
-        
+
         assert isinstance(self.gf, callflow.GraphFrame)
 
     def union_df(self):
@@ -48,8 +51,8 @@ class EnsembleGraph(SuperGraph):
         Union the dataframes. 
         """
         df = pd.DataFrame([])
-        for idx, dataset_name in enumerate(self.datasets):
-            gf = self.datasets[dataset_name].gf
+        for idx, tag in enumerate(self.supergraphs):
+            gf = self.supergraphs[tag].gf
 
             df = pd.concat([df, gf.df], sort=True)
 
@@ -61,10 +64,10 @@ class EnsembleGraph(SuperGraph):
         Union the netwprkX graph. 
         """
         nxg = nx.DiGraph()
-        for idx, dataset_name in enumerate(self.datasets):
+        for idx, tag in enumerate(self.supergraphs):
             LOGGER.debug("-=========================-")
-            LOGGER.debug(dataset_name)
-            self.union_nxg_recurse(nxg, self.datasets[dataset_name].gf.nxg)
+            LOGGER.debug(tag)
+            self.union_nxg_recurse(nxg, self.supergraphs[tag].gf.nxg)
 
         return nxg
 
@@ -133,6 +136,9 @@ class EnsembleGraph(SuperGraph):
         return ret
 
     def add_node_attributes(self, H, node, dataset_name):
+        """
+        TODO: Hoist this information to the df directly. 
+        """
         for idx, (key, val) in enumerate(H.nodes.items()):
             if dataset_name not in self.nxg.nodes[node]:
                 self.nxg.nodes[node] = self.vector[node]

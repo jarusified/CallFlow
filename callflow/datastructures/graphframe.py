@@ -18,7 +18,8 @@ class GraphFrame(ht.GraphFrame):
             self.df = self.dataframe
 
         # save a networkx graph
-        self.nxg = self.hatchet_graph_to_nxg(graph)
+        if graph:
+            self.nxg = self.hatchet_graph_to_nxg(graph)
 
     # --------------------------------------------------------------------------
     # Hatchet's GraphFrame utilities.
@@ -61,10 +62,26 @@ class GraphFrame(ht.GraphFrame):
 
         return GraphFrame.from_hatchet(gf)
 
-    # TODO: Implement this method. 
+    # TODO: Implement this method.
     @staticmethod
-    def from_saved_files():
-        pass
+    def from_data(data):
+        """
+        Create GraphFrame from 3 sets of information : df, graph, nxg. 
+        """
+        # Create a graphframe.
+
+        data["df"] = data["df"].set_index(["node", "rank"])
+        gf = GraphFrame(dataframe=data["df"], graph=data["graph"])
+
+        # Drop the index: rank and hatchet nodes are the indexes.
+        # gf.df.reset_index(drop=True)
+
+        # Store the nxg.
+        gf.nxg = data["nxg"]
+
+        print(gf.df)
+        return gf
+
     # --------------------------------------------------------------------------
     # callflow.graph utilities.
     #

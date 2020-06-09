@@ -40,7 +40,7 @@ class ConfigFileReader:
         self.runName = self.json["run_name"]
         self.save_path = os.path.join(self.data_path, ".callflow")
         self.read_parameter = self.json["read_parameter"]
-        
+
         self.run()
 
     # --------------------------------------------------------------------------

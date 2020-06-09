@@ -17,6 +17,9 @@ import json
 from ast import literal_eval as make_tuple
 from callflow.timer import Timer
 from callflow import SuperGraph
+import callflow
+
+LOGGER = callflow.get_logger(__name__)
 
 
 class SingleSuperGraph(SuperGraph):
@@ -55,7 +58,7 @@ class SingleSuperGraph(SuperGraph):
 
         with self.timer.phase("Construct Graph"):
             if construct_graph:
-                log.info("Creating the SuperGraph for {0}.".format(self.state.name))
+                LOGGER.info("Creating the SuperGraph for {0}.".format(self.state.name))
                 self.mapper = {}
                 self.g = nx.DiGraph()
                 self.add_paths(path)
@@ -63,7 +66,6 @@ class SingleSuperGraph(SuperGraph):
             else:
                 print("Using the existing graph from state {0}".format(self.state.name))
 
-        
         LOGGER.info("Modules: {0}".format(self.df["module"].unique()))
         LOGGER.info("Top 10 Inclusive time: ")
         top = 10
@@ -96,7 +98,7 @@ class SingleSuperGraph(SuperGraph):
                 self.add_node_attributes()
                 self.add_edge_attributes()
             else:
-            print("Creating a Graph without node or edge attributes.")
+                LOGGER.info("Creating a Graph without node or edge attributes.")
 
         LOGGER.debug(self.timer)
 
@@ -140,7 +142,7 @@ class SingleSuperGraph(SuperGraph):
                         },
                     )
 
-    # TODO: remove this if not needed. 
+    # TODO: remove this if not needed.
     def add_callback_paths(self):
         for from_module, to_modules in self.callbacks.items():
             for idx, to_module in enumerate(to_modules):

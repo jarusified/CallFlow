@@ -25,6 +25,7 @@ from callflow import CallFlow
 from callflow.operations import ConfigFileReader
 
 import callflow
+
 LOGGER = callflow.get_logger(__name__)
 
 
@@ -53,9 +54,13 @@ class CallFlowServer:
 
         # Call the version of callflow corresponding to number of datasets.
         if len(self.config.datasets) == 1:
-            self.callflow = CallFlow(config=self.config, process=self.process, ensemble=False)
+            self.callflow = CallFlow(
+                config=self.config, process=self.process, ensemble=False
+            )
         else:
-            self.callflow = CallFlow(config=self.config, process=self.process, ensemble=True)
+            self.callflow = CallFlow(
+                config=self.config, process=self.process, ensemble=True
+            )
 
         # Create server if not processing.
         if not self.process:
@@ -147,7 +152,7 @@ class CallFlowServer:
             """
             if self.debug:
                 LOGGER.debug(f"[Socket request] init: {data}")
-            result = self.callflow.request({"name": "init"})
+            result = self.callflow._request_single({"name": "init"})
             json_result = json.dumps(result)
             emit("init", json_result, json=True)
 

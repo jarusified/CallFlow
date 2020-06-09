@@ -1,6 +1,7 @@
 import os
 import json
 import copy
+import pandas as pd
 import networkx as nx
 import callflow
 from networkx.readwrite import json_graph
@@ -8,26 +9,31 @@ from networkx.readwrite import json_graph
 from callflow.operations import Process, Group, Filter
 from callflow.modules import EnsembleAuxiliary
 
+LOGGER = callflow.get_logger(__name__)
+
 
 class SuperGraph(object):
-    def __init__(self, props={}, tag="", mode="process", datasets={}):
-
-        self.datasets = datasets
-        # Props is the information contained in config object. 
-        # We duplicate this to add more information to config and not modify it as a side effect. 
+    def __init__(self, props={}, tag="", mode="process"):
+        # TODO: rename this to self.supergraphs.
+        # self.datasets = datasets
+        # Props is the information contained in config object.
+        # We duplicate this to add more information to config and not modify it as a side effect.
         self.props = props
         self.dirname = self.props["save_path"]
 
-        # it appears we're using name as "union", "filter", etc. 
+        # it appears we're using name as "union", "filter", etc.
         # this is not a data set name!
         self.tag = tag
 
-        # Mode is either process or render. 
+        # Mode is either process or render.
         self.mode = mode
 
-        # instead of the old variables, we will use these new ones.
-        # these are callflow.graphframe object (has gf, df, and networkx)
-        self.create_gf()
+        # Create a graphframe based on the mode.
+        if mode == "process":
+            self.create_gf()
+        elif mode == "render":
+            data = self.read_gf(read_parameter=self.props["read_parameter"])
+            self.create_gf(data)
 
         self.projection_data = {}
 
@@ -45,18 +51,18 @@ class SuperGraph(object):
 
         self.gf = gf
 
-    def create_gf(self):
+    def create_gf(self, data=None):
         """
         Creates a graphframe using config and networkX grapg from hatchet graph.
         Each graphframe is tagged by a unique identifier. 
         e.g., here is the runName from config file or JSON.
         """
-        if self.mode == "process":
+        if data:
+            self.gf = callflow.GraphFrame.from_data(data)
+        else:
             gf = callflow.GraphFrame.from_config(self.props, self.tag)
             self.gf = copy.deepcopy(gf)
-        elif self.mode == "render":
-            self.gf = callflow.GraphFrame.from_saved_files(self.process, self.tag)
-    
+
     def process_gf(self):
         """
         # TODO: move the process functions to graphframe. 
@@ -135,46 +141,45 @@ class SuperGraph(object):
         callsites_df = sort_xgroup_df.nlargest(count, sort_attr)
         return callsites_df.index.values.tolist()
 
-    def read_gf(
-        self, read_df=True, read_nxg=True, read_parameter=True
-    ):
+    # TODO: Remove the flags on read_df, read_nxg.
+    def read_gf(self, read_parameter=True, read_graph=False):
         """
         # Read a single dataset stored in .callflow directory.
         """
-
         LOGGER.info("Reading the dataset: {0}".format(self.tag))
 
-        if read_df:
-            df_file_name = gf_type + "_df.csv"
-            df_file_path = os.path.join(self.dirname, self.tag, df_file_name)
-            df = pd.read_csv(df_file_path)
+        df_file_name = "df.csv"
+        df_file_path = os.path.join(self.dirname, self.tag, df_file_name)
+        df = pd.read_csv(df_file_path)
+        if df.empty:
+            raise ValueError(f"{df_file_path} is empty.")
 
-            if df.empty:
-                raise ValueError(f"{df_file_path} is empty.")
+        nxg_file_name = "nxg.json"
+        nxg_file_path = os.path.join(self.dirname, self.tag, nxg_file_name)
+        with open(nxg_file_path, "r") as nxg_file:
+            graph = json.load(nxg_file)
+        nxg = json_graph.node_link_graph(graph)
+        assert nxg != None
 
-        if read_nxg:
-            nxg_file_name = "nxg.json"
-            nxg_file_path = os.path.join(self.dirname, self.tag, nxg_file_name)
-            with open(nxg_file_path, "r") as nxg_file:
-                graph = json.load(nxg_file)
-            nxg = json_graph.node_link_graph(graph)
-            assert nxg != None
+        graph = {}
+        if read_graph:
+            graph_file_name = "hatchet_tree.txt"
+            graph_file_path = os.path.join(self.dirname, self.tag, graph_file_name)
+            with open(graph_file_path, "r") as graph_file:
+                graph = json.load(graph_file)
+            assert isinstance(graph, ht.GraphFrame.Graph)
 
+        parameters = {}
         if read_parameter:
             parameters_filepath = os.path.join(self.dirname, self.tag, "env_params.txt")
-            projection_data = {}
             for line in open(parameters_filepath, "r"):
                 s = 0
                 for num in line.strip().split(","):
                     split_num = num.split("=")
-                    projection_data[split_num[0]] = split_num[1]
+                    parameters[split_num[0]] = split_num[1]
+        return {"df": df, "nxg": nxg, "graph": graph, "parameters": parameters}
 
-            assert projection_data != {}
-            self.projection_data = projection_data
-
-            self.gf = GraphFrame(dataframe=df)
-
-    def write_gf(self, gf_type, write_df=True, write_graph=True, write_nxg=True):
+    def write_gf(self, write_df=True, write_graph=False, write_nxg=True):
         """
         # Write the dataset to .callflow directory.
         """
@@ -184,19 +189,19 @@ class SuperGraph(object):
         gf = self.gf
         # dump the filtered dataframe to csv if write_df is true.
         if write_df:
-            df_file_name = gf_type + "_df.csv"
+            df_file_name = "df.csv"
             df_file_path = os.path.join(dirname, self.tag, df_file_name)
             gf.df.to_csv(df_file_path)
 
         # TODO: Writing fails.
         if write_nxg:
-            nxg_file_name = gf_type + "_nxg.json"
+            nxg_file_name = "nxg.json"
             nxg_file_path = os.path.join(dirname, self.tag, nxg_file_name)
             nxg_data = json_graph.node_link_data(self.gf.nxg)
             with open(nxg_file_path, "w") as nxg_file:
                 json.dump(nxg_data, nxg_file)
 
-        if not write_graph:
+        if write_graph:
             graph_filepath = os.path.join(dirname, self.tag, "hatchet_tree.txt")
             with open(graph_filepath, "a") as hatchet_graphFile:
                 hatchet_graphFile.write(self.gf.tree(color=False))
@@ -229,7 +234,6 @@ class SuperGraph(object):
             data = json.load(filter_graphFile)
         return data
 
-    
     @staticmethod
     def _create_source_targets(self, path):
         module = ""
@@ -321,9 +325,10 @@ class SuperGraph(object):
         self.target_name_time_inc_map = {}
         self.target_name_time_exc_map = {}
 
-        
         # Reduce the entire_df to respective target dfs.
-        self.target_df[dataset] = self.entire_df.loc[self.entire_df["dataset"] == dataset]
+        self.target_df[dataset] = self.entire_df.loc[
+            self.entire_df["dataset"] == dataset
+        ]
 
         # Unique modules in the target run
         self.target_modules[dataset] = self.target_df[dataset]["module"].unique()
@@ -331,7 +336,9 @@ class SuperGraph(object):
         # Group the dataframe in two ways.
         # 1. by module
         # 2. by module and callsite
-        self.target_module_group_df[dataset] = self.target_df[dataset].groupby(["module"])
+        self.target_module_group_df[dataset] = self.target_df[dataset].groupby(
+            ["module"]
+        )
         self.target_module_name_group_df[dataset] = self.target_df[dataset].groupby(
             ["module", "name"]
         )
@@ -409,7 +416,6 @@ class SuperGraph(object):
             ret.append(dataMap[module][-1])
 
         return ret
-
 
     def add_paths(self, path):
         pass

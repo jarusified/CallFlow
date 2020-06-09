@@ -3,93 +3,107 @@ import json
 
 import callflow
 from callflow import SuperGraph, EnsembleGraph
+
 LOGGER = callflow.get_logger(__name__)
+
 
 class CallFlow:
     def __init__(self, config={}, process=False, ensemble=False):
+        """
+        Entry interface to access CallFlow's functionalities. "
+        """
 
         # Assert if config is provided.
         assert config != None
 
         # Convert config json to props. Never touch self.config ever.
         self.props = json.loads(json.dumps(config, default=lambda o: o.__dict__))
-       
+        assert ensemble == (len(self.props["dataset_names"]) > 1)
+
         # Based on option, either process into .callflow or read from .callflow.
         if process:
             self._create_dot_callflow_folder()
             if ensemble:
-                self._process_datasets_ensemble()
+                self._process_ensemble()
             else:
-                self._process_datasets_single()
+                self._process_single()
         else:
             if ensemble:
-                self.datasets = self._read_datasets_ensemble()
+                self.supergraphs = self._read_ensemble()
+            else:
+                self.supergraphs = self._read_single()
 
-            self.add_target_df()
+            assert ensemble == (len(self.supergraphs.keys()) > 1)
+            assert len(self.props["dataset_names"]) == len(self.supergraphs.keys())
+
             self.add_basic_info_to_props()
 
-
     # --------------------------------------------------------------------------
-    def _process_datasets_single(self):
+    def _process_single(self):
         """
         Single dataset processing. 
         """
         dataset_name = self.props["dataset_names"][0]
-        dataset = Dataset(self.props, dataset_name)
+        supergraph = SuperGraph(props=self.props, tag=dataset_name, mode="process")
         LOGGER.info("#########################################")
         LOGGER.info(f"Run: {dataset_name}")
         LOGGER.info("#########################################")
 
         # Process each graphframe.
-        dataset.process_gf()
+        supergraph.process_gf()
 
         # Filter by inclusive or exclusive time.
-        dataset.filter_gf(mode="single")
+        supergraph.filter_gf(mode="single")
 
         # Group by module.
-        dataset.group_gf(group_by="module")
+        supergraph.group_gf(group_by="module")
 
         # Store the graphframe.
-        dataset.write_gf("entire")
+        supergraph.write_gf("entire")
 
-    def _process_datasets_ensemble(self):
+    def _process_ensemble(self):
         """
         Ensemble processing of datasets. 
         """
-        # Single dataset processing.
-        single_datasets = {}
+        # Before we process the ensemble, we perform initial processing on all datasets.
+        single_supergraphs = {}
         for idx, dataset_name in enumerate(self.props["dataset_names"]):
             # Create an instance of dataset.
-            single_datasets[dataset_name] = SuperGraph(self.props, dataset_name, mode="process", datasets={})
+            single_supergraphs[dataset_name] = SuperGraph(
+                props=self.props, tag=dataset_name, mode="process"
+            )
             LOGGER.info("#########################################")
             LOGGER.info(f"Run: {dataset_name}")
             LOGGER.info("#########################################")
 
             # Process each graphframe.
-            single_datasets[dataset_name].process_gf()
+            single_supergraphs[dataset_name].process_gf()
 
             # Write the entire graphframe into .callflow.
-            single_datasets[dataset_name].write_gf("entire")
+            single_supergraphs[dataset_name].write_gf("entire")
 
         # Create a dataset for ensemble case.
-        ensemble_dataset = EnsembleGraph(self.props, "ensemble", mode="process", datasets=single_datasets)
-        # Write the graphframe to file. 
-        ensemble_dataset.write_gf("entire")
+        ensemble_supergraph = EnsembleGraph(
+            self.props, "ensemble", mode="process", supergraphs=single_supergraphs
+        )
+
+        # Write the graphframe to file.
+        ensemble_supergraph.write_gf("entire")
 
         # Filter the ensemble graphframe.
-        ensemble_dataset.filter_gf(mode="ensemble")
+        ensemble_supergraph.filter_gf(mode="ensemble")
 
         # Write the filtered graphframe.
-        ensemble_dataset.write_gf("filter")
+        ensemble_supergraph.write_gf("filter")
 
         # Group by module.
-        ensemble_dataset.group_gf(group_by="module")
+        ensemble_supergraph.group_gf(group_by="module")
 
         # Write the grouped graphframe.
-        ensemble_dataset.write_gf("group")
+        ensemble_supergraph.write_gf("group")
 
         # Calculate auxiliary information (used by callflow app.)
-        ensemble_dataset.auxiliary(
+        ensemble_supergraph.auxiliary(
             # MPIBinCount=self.currentMPIBinCount,
             # RunBinCount=self.currentRunBinCount,
             MPIBinCount=20,
@@ -99,43 +113,40 @@ class CallFlow:
         )
 
     # --------------------------------------------------------------------------
-    def _read_datasets_single(self):
+    def _read_single(self):
         """
         Read the single .callflow files required for client.
         """
+        supergraphs = {}
+        # Only consider the first dataset from the listing.
         dataset_name = self.props["dataset_names"][0]
-        dataset = Dataset(self.props, dataset_name)
-        dataset.read_gf(gf_type="entire", read_parameter=self.props["read_parameter"])
-        return dataset
+        supergraphs[dataset_name] = SuperGraph(self.props, dataset_name)
 
-    def _read_datasets_ensemble(self):
+        return supergraphs
+
+    def _read_ensemble(self):
         """
         Read the ensemble .callflow files required for client.
         """
-        datasets = {}
+        supergraphs = {}
 
         for idx, dataset_name in enumerate(self.props["dataset_names"]):
-            datasets[dataset_name] = SuperGraph(self.props, dataset_name, mode="render")
-            datasets[dataset_name].read_gf(gf_type="entire", read_parameter=self.props["read_parameter"])
+            supergraphs[dataset_name] = SuperGraph(
+                self.props, dataset_name, mode="render"
+            )
+            supergraphs[dataset_name].read_gf(
+                read_parameter=self.props["read_parameter"]
+            )
 
-        datasets["ensemble"] = Dataset(self.props, "ensemble")
-        datasets["ensemble"].read_gf("entire", read_parameter=self.props["read_parameter"])
-        datasets["ensemble"].read_gf("filter", read_parameter=self.props["read_parameter"])
-        datasets["ensemble"].read_gf("group", read_parameter=self.props["read_parameter"])
-        datasets["ensemble"].read_auxiliary_data()
-        return datasets
+        supergraphs["ensemble"] = EnsembleGraph(self.props, "ensemble")
+        supergraphs["ensemble"].read_gf(read_parameter=self.props["read_parameter"])
+        supergraphs["ensemble"].read_auxiliary_data()
+        return supergraphs
+
     # --------------------------------------------------------------------------
-    def add_target_df(self):
-        """
-        """
-        self.target_df = {}
-        for dataset in self.props["dataset_names"]:
-            self.target_df[dataset] = self.datasets["ensemble"].gf.df.loc[
-                self.datasets["ensemble"].gf.df["dataset"] == dataset
-            ]
-
     def add_basic_info_to_props(self):
         """
+        Adds basic information (like max, min inclusive and exclusive runtime) to self.props.
         """
         self.props["maxIncTime"] = {}
         self.props["maxExcTime"] = {}
@@ -147,29 +158,33 @@ class CallFlow:
         minIncTime = 0
         minExcTime = 0
         maxNumOfRanks = 0
-        for idx, dataset in enumerate(self.props["dataset_names"]):
-            self.props["maxIncTime"][dataset] = self.target_df[dataset][
-                "time (inc)"
-            ].max()
-            self.props["maxExcTime"][dataset] = self.target_df[dataset]["time"].max()
-            self.props["minIncTime"][dataset] = self.target_df[dataset][
-                "time (inc)"
-            ].min()
-            self.props["minExcTime"][dataset] = self.target_df[dataset]["time"].min()
-            self.props["numOfRanks"][dataset] = len(
-                self.target_df[dataset]["rank"].unique()
+        for idx, dataset in enumerate(self.datasets):
+            self.props["maxIncTime"][dataset] = (
+                self.datasets[dataset].gf.df["time (inc)"].max()
             )
+            self.props["maxExcTime"][dataset] = (
+                self.datasets[dataset].gf.df["time"].max()
+            )
+            self.props["minIncTime"][dataset] = (
+                self.datasets[dataset].gf.df["time (inc)"].min()
+            )
+            self.props["minExcTime"][dataset] = (
+                self.datasets[dataset].gf.df["time"].min()
+            )
+            # self.props["numOfRanks"][dataset] = len(
+            #     self.datasets[dataset].gf.df["rank"].unique()
+            # )
             maxExcTime = max(self.props["maxExcTime"][dataset], maxExcTime)
             maxIncTime = max(self.props["maxIncTime"][dataset], maxIncTime)
             minExcTime = min(self.props["minExcTime"][dataset], minExcTime)
             minIncTime = min(self.props["minIncTime"][dataset], minIncTime)
-            maxNumOfRanks = max(self.props["numOfRanks"][dataset], maxNumOfRanks)
+            # maxNumOfRanks = max(self.props["numOfRanks"][dataset], maxNumOfRanks)
 
         self.props["maxIncTime"]["ensemble"] = maxIncTime
         self.props["maxExcTime"]["ensemble"] = maxExcTime
         self.props["minIncTime"]["ensemble"] = minIncTime
         self.props["minExcTime"]["ensemble"] = minExcTime
-        self.props["numOfRanks"]["ensemble"] = maxNumOfRanks
+        # self.props["numOfRanks"]["ensemble"] = maxNumOfRanks
 
     # --------------------------------------------------------------------------
     def _create_dot_callflow_folder(self):
@@ -193,18 +208,27 @@ class CallFlow:
                 os.makedirs(dataset_dir)
 
             files = [
-                "entire_df.csv",
-                "filter_df.csv",
-                "entire_nxg.json",
-                "filter_nxg.json",
+                "df.csv",
+                "nxg.json",
+                "hatchet_tree.txt",
             ]
             for f in files:
                 fname = os.path.join(dataset_dir, f)
                 if not os.path.exists(fname):
                     open(fname, "w").close()
 
+    def _remove_dot_callflow_folder(self):
+        """
+        TODO: We might want to delete the .callflow folder when we re-process/re-write. 
+        """
+        pass
+
     # --------------------------------------------------------------------------
     def request_single(self, operation):
+        """
+        TODO: Write individual functiosn to do this.
+        Handles all the socket requests connected to Single CallFlow. 
+        """
         LOGGER.info(f"[Single Mode] {operation}")
         operation_tag = operation["name"]
 
@@ -253,7 +277,9 @@ class CallFlow:
 
         elif operation_tag == "cct":
             graph = CCT(
-                self.states[operation["dataset"]], operation["functionsInCCT"], self.config
+                self.states[operation["dataset"]],
+                operation["functionsInCCT"],
+                self.config,
             )
             return graph.g
 
@@ -261,8 +287,11 @@ class CallFlow:
             functionlist = FunctionList(state, operation["module"], operation["nid"])
             return functionlist.result
 
-    # Write individual functiosn to do this.
     def request_ensemble(self, operation):
+        """
+        TODO: Write individual functiosn to do this.
+        Handles all the socket requests connected to Single CallFlow. 
+        """
         operation_tag = operation["name"]
         datasets = self.props["dataset_names"]
 

@@ -2,7 +2,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import math, json
-from ast import literal_eval as make_list 
+from ast import literal_eval as make_list
 
 import callflow
 from callflow import Dataset
@@ -83,7 +83,6 @@ class EnsembleSuperGraph(SuperGraph):
             else:
                 LOGGER.debug(f"Using the existing graph from state {self.state.name}")
 
-       
         with self.timer.phase("Add graph attributes"):
             self.add_node_attributes()
             self.add_edge_attributes()
