@@ -326,8 +326,8 @@ class SuperGraph(object):
         self.target_name_time_exc_map = {}
 
         # Reduce the entire_df to respective target dfs.
-        self.target_df[dataset] = self.entire_df.loc[
-            self.entire_df["dataset"] == dataset
+        self.target_df[dataset] = self.gf.df.loc[
+            self.gf.df["dataset"] == dataset
         ]
 
         # Unique modules in the target run
@@ -365,11 +365,11 @@ class SuperGraph(object):
         )
 
     def create_ensemble_maps(self):
-        self.modules = self.entire_df["module"].unique()
+        self.modules = self.gf.df["module"].unique()
 
-        self.module_name_group_df = self.entire_df.groupby(["module", "name"])
-        self.module_group_df = self.entire_df.groupby(["module"])
-        self.name_group_df = self.entire_df.groupby(["name"])
+        self.module_name_group_df = self.gf.df.groupby(["module", "name"])
+        self.module_group_df = self.gf.df.groupby(["module"])
+        self.name_group_df = self.gf.df.groupby(["name"])
 
         # Module map for ensemble {'module': [Array of callsites]}
         self.module_callsite_map = self.module_group_df["name"].unique().to_dict()

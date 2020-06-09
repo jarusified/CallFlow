@@ -14,17 +14,18 @@ import pandas as pd
 import networkx as nx
 from ast import literal_eval as make_tuple
 
+import callflow
 from callflow.timer import Timer
 
 
 class CCT:
-    def __init__(self, datasets, graph_tag, callsite_count):
+    def __init__(self, supergraphs={}, tag="", callsite_count=50):
 
         self.timer = Timer()
-        self.dataset = datasets[graph_tag]
+        self.dataset = supergraphs[tag]
 
         # Get the current graph and df
-        self.entire_df = self.dataset.new_gf.df
+        self.entire_df = self.dataset.gf.df
 
         # Number of runs in the state.
         self.runs = self.entire_df["dataset"].unique()
@@ -48,7 +49,7 @@ class CCT:
         with self.timer.phase(f"Creating the data maps."):
             self.cct_df = self.entire_df[self.entire_df["name"].isin(self.g.nodes())]
             self.dataset.create_ensemble_maps()
-            # self.dataset.create_target_maps()
+            self.dataset.create_target_maps(tag)
 
         with self.timer.phase(f"Add node and edge attributes."):
             self.add_node_attributes()
@@ -83,9 +84,9 @@ class CCT:
                 if column not in ret:
                     ret[column] = {}
                 if column == "time (inc)":
-                    ret[column][callsite] = self.name_time_inc_map[(module, callsite)]
+                    ret[column][callsite] = self.dataset.name_time_inc_map[(module, callsite)]
                 elif column == "time":
-                    ret[column][callsite] = self.name_time_exc_map[(module, callsite)]
+                    ret[column][callsite] = self.dataset.name_time_exc_map[(module, callsite)]
                 elif column == "name":
                     ret[column][callsite] = callsite
                 elif column == "module":
@@ -96,14 +97,14 @@ class CCT:
     def dataset_map(self, nodes, run):
         ret = {}
         for callsite in self.g.nodes():
-            if callsite not in self.config.callsite_module_map:
+            if callsite not in self.dataset.props["callsite_module_map"]:
                 module = self.entire_df.loc[self.entire_df["name"] == callsite][
                     "module"
                 ].unique()[0]
             else:
-                module = self.config.callsite_module_map[callsite]
+                module = self.dataset.props.callsite_module_map[callsite]
 
-            if callsite in self.target_module_callsite_map[run].keys():
+            if callsite in self.dataset.target_module_callsite_map[run].keys():
                 if callsite not in ret:
                     ret[callsite] = {}
 
@@ -194,8 +195,8 @@ class CCT:
             if idx == len(path) - 1:
                 break
 
-            source = sanitizeName(path[idx])
-            target = sanitizeName(path[idx + 1])
+            source = callflow.utils.sanitize_name(path[idx])
+            target = callflow.utils.sanitize_name(path[idx + 1])
 
             edges.append(
                 {"source": source, "target": target,}

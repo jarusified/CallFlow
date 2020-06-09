@@ -146,13 +146,14 @@ class CallFlowServer:
         def init(data):
             """
             # TODO: Change request tag to "config".
-            # TODO: Remove case study.
             Essential data house for single callflow.
             :return: Config file (JSON Format).
             """
-            if self.debug:
-                LOGGER.debug(f"[Socket request] init: {data}")
-            result = self.callflow._request_single({"name": "init"})
+            LOGGER.debug(f"[Socket request] init: {data}")
+            if data["mode"] == "Ensemble":
+                result = self.callflow.request_ensemble({"name": "init"})
+            elif data["mode"] == "Single":
+                result = self.callflow.request_single({"name": "init"})
             json_result = json.dumps(result)
             emit("init", json_result, json=True)
 
@@ -262,18 +263,17 @@ class CallFlowServer:
             if self.debug:
                 LOGGER.debug("[Socket request] Single CCT: {}".format(data))
 
-            nxg = self.callflow.request(
+            nxg = self.callflow.request_single(
                 {
                     "name": "cct",
                     "dataset": data["dataset"],
                     "functionsInCCT": data["functionsInCCT"],
                 }
             )
-            console.log(nxg)
             result = json_graph.node_link_data(nxg)
             json_result = json.dumps(result)
 
-            emit("single_cct", json_result, json=True)
+            emit("single_cct", result, json=True)
 
         @sockets.on("single_supergraph", namespace="/")
         def single_supergraph(data):
@@ -324,16 +324,14 @@ class CallFlowServer:
             Union of all CCTs.
             :return: CCT networkx graph (JSON format).
             """
-            if self.debug:
-                LOGGER.debug("[Socket request] ensemble_cct: {}".format(data))
-            nxg = self.callflow.request(
+            LOGGER.debug("[Socket request] ensemble_cct: {}".format(data))
+            nxg = self.callflow.request_ensemble(
                 {
                     "name": "ensemble_cct",
                     "datasets": data["datasets"],
                     "functionsInCCT": data["functionsInCCT"],
                 }
             )
-            LOGGER.debug(nxg)
             result = json_graph.node_link_data(nxg)
             json_result = json.dumps(result)
             emit("ensemble_cct", json_result, json=True)

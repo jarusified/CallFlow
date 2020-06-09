@@ -115,7 +115,7 @@ export default {
 		selectedOutlierBand: 4,
 		defaultCallSite: "<program root>",
 		modes: ["Ensemble", "Single"],
-		selectedMode: "Ensemble",
+		selectedMode: "Single",
 		// Presentation mode variables
 		exhibitModes: ["Presentation", "Default"],
 		selectedExhibitMode: "Default",
@@ -164,9 +164,11 @@ export default {
 
 	mounted() {
 		var socket = io.connect(this.server, { reconnect: false });
+		console.log(this.selectedMode)
 		this.$socket.emit("init", {
-			caseStudy: this.selectedCaseStudy
+			mode: this.selectedMode
 		});
+
 		EventHandler.$on("lasso_selection", () => {
 			this.$store.resetTargetDataset = true;
 
@@ -619,6 +621,7 @@ export default {
 					this.loadComponents(this.currentEnsembleCallGraphComponents);
 				}
 				else if (this.selectedFormat == "CCT") {
+					console.log(this.currentEnsembleCCTComponents)
 					this.initComponents(this.currentEnsembleCCTComponents);
 				}
 			}

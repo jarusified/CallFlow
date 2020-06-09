@@ -15,7 +15,6 @@ class EnsembleGraph(SuperGraph):
     def __init__(self, props={}, tag="", mode="process", supergraphs={}):
         # this stores the mapping for each run's data (i.e., Dataset)
         self.supergraphs = supergraphs
-        print("aaa")
 
         super().__init__(props, tag, mode)
 

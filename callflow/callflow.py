@@ -2,7 +2,7 @@ import os
 import json
 
 import callflow
-from callflow import SuperGraph, EnsembleGraph
+from callflow import SuperGraph, EnsembleGraph, CCT
 
 LOGGER = callflow.get_logger(__name__)
 
@@ -158,26 +158,26 @@ class CallFlow:
         minIncTime = 0
         minExcTime = 0
         maxNumOfRanks = 0
-        for idx, dataset in enumerate(self.datasets):
-            self.props["maxIncTime"][dataset] = (
-                self.datasets[dataset].gf.df["time (inc)"].max()
+        for idx, tag in enumerate(self.supergraphs):
+            self.props["maxIncTime"][tag] = (
+                self.supergraphs[tag].gf.df["time (inc)"].max()
             )
-            self.props["maxExcTime"][dataset] = (
-                self.datasets[dataset].gf.df["time"].max()
+            self.props["maxExcTime"][tag] = (
+                self.supergraphs[tag].gf.df["time"].max()
             )
-            self.props["minIncTime"][dataset] = (
-                self.datasets[dataset].gf.df["time (inc)"].min()
+            self.props["minIncTime"][tag] = (
+                self.supergraphs[tag].gf.df["time (inc)"].min()
             )
-            self.props["minExcTime"][dataset] = (
-                self.datasets[dataset].gf.df["time"].min()
+            self.props["minExcTime"][tag] = (
+                self.supergraphs[tag].gf.df["time"].min()
             )
             # self.props["numOfRanks"][dataset] = len(
             #     self.datasets[dataset].gf.df["rank"].unique()
             # )
-            maxExcTime = max(self.props["maxExcTime"][dataset], maxExcTime)
-            maxIncTime = max(self.props["maxIncTime"][dataset], maxIncTime)
-            minExcTime = min(self.props["minExcTime"][dataset], minExcTime)
-            minIncTime = min(self.props["minIncTime"][dataset], minIncTime)
+            maxExcTime = max(self.props["maxExcTime"][tag], maxExcTime)
+            maxIncTime = max(self.props["maxIncTime"][tag], maxIncTime)
+            minExcTime = min(self.props["minExcTime"][tag], minExcTime)
+            minIncTime = min(self.props["minIncTime"][tag], minIncTime)
             # maxNumOfRanks = max(self.props["numOfRanks"][dataset], maxNumOfRanks)
 
         self.props["maxIncTime"]["ensemble"] = maxIncTime
@@ -241,7 +241,6 @@ class CallFlow:
             operation["groupBy"] = "name"
 
         dataset = operation["dataset"]
-        state = self.states[dataset]
 
         LOGGER.info("The selected Dataset is {0}".format(dataset))
 
@@ -277,9 +276,9 @@ class CallFlow:
 
         elif operation_tag == "cct":
             graph = CCT(
-                self.states[operation["dataset"]],
-                operation["functionsInCCT"],
-                self.config,
+                supergraphs=self.supergraphs,
+                tag=operation["dataset"],
+                callsite_count=operation["functionsInCCT"]
             )
             return graph.g
 
