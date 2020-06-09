@@ -493,6 +493,7 @@ export default {
 
 		// Feature: the Supernode hierarchy is automatically selected from the mean metric runtime. 
 		sortModulesByMetric(attr) {
+			console.log(this.$store.modules)
 			let module_list = Object.keys(this.$store.modules["ensemble"]);
 
 			// Create a map for each dataset mapping the respective mean times. 
@@ -591,7 +592,7 @@ export default {
 			this.setupColors();
 			this.setOtherData();
 			this.setTargetDataset();
-			if(this.selectedFormat == 'SuperGraph'){
+			if(this.selectedFormat == 'SuperGraph' && this.selectedMode == 'Ensemble'){
 				this.setSelectedModule();
 			}
 
