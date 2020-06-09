@@ -33,7 +33,7 @@ class SuperGraph(object):
             self.create_gf()
         elif mode == "render":
             data = self.read_gf(read_parameter=self.props["read_parameter"])
-            self.create_gf(data)
+            self.create_gf(data=data)
             self.auxiliary_data = self.read_auxiliary_data()
 
         self.projection_data = {}

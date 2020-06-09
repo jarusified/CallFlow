@@ -61,7 +61,7 @@ class EnsembleAuxiliary:
 
     def compute(self):
         ret = {}
-        path = os.path.join(self.props["save_path"], "all_data.json")
+        path = os.path.join(self.props["save_path"], "ensemble/auxiliary_data.json")
 
         LOGGER.info("Calculating Gradients, Mean runtime variations, and Distribution.")
         with self.timer.phase("Process data"):
@@ -74,10 +74,10 @@ class EnsembleAuxiliary:
             ret["moduleCallsiteMap"] = self.get_module_callsite_map()
         # with self.timer.phase("Callsite module map data"):
         #     ret['callsiteModuleMap'] = self.get_callsite_module_map()
-        if self.write:
-            with self.timer.phase("Writing data"):
-                with open(path, "w") as f:
-                    json.dump(ret, f)
+        # if self.write:
+        with self.timer.phase("Writing data"):
+            with open(path, "w") as f:
+                json.dump(ret, f)
 
         return ret
 

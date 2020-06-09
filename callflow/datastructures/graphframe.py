@@ -73,13 +73,9 @@ class GraphFrame(ht.GraphFrame):
         data["df"] = data["df"].set_index(["node", "rank"])
         gf = GraphFrame(dataframe=data["df"], graph=data["graph"])
 
-        # Drop the index: rank and hatchet nodes are the indexes.
-        # gf.df.reset_index(drop=True)
-
         # Store the nxg.
         gf.nxg = data["nxg"]
 
-        print(gf.df)
         return gf
 
     # --------------------------------------------------------------------------

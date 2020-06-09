@@ -27,23 +27,26 @@ class EnsembleGraph(SuperGraph):
     def _setter(self):
         pass
 
-    def create_gf(self):
+    def create_gf(self, data=None):
         """
         Create the graphframes for the ensemble operation. 
         """
         # Set the gf as first of the dataset's gf
-        first_dataset = list(self.supergraphs.keys())[0]
-        LOGGER.debug(f"Base for the union operation is: {first_dataset}")
+        if data:
+            self.gf = callflow.GraphFrame.from_data(data)
+        else:
+            first_dataset = list(self.supergraphs.keys())[0]
+            LOGGER.debug(f"Base for the union operation is: {first_dataset}")
 
-        # TODO: do a deep copy.
-        # Instead of a deep copy, create a new graphframe and return it.
-        self.gf = self.supergraphs[first_dataset].gf
-        self.gf.df = self.union_df()
-        # There is no way to convert networkX to hatchet graph yet. So we are setting this to None.
-        self.gf.graph = None
-        self.gf.nxg = self.union_nxg()
+            # TODO: do a deep copy.
+            # Instead of a deep copy, create a new graphframe and return it.
+            self.gf = self.supergraphs[first_dataset].gf
+            self.gf.df = self.union_df()
+            # There is no way to convert networkX to hatchet graph yet. So we are setting this to None.
+            self.gf.graph = None
+            self.gf.nxg = self.union_nxg()
 
-        assert isinstance(self.gf, callflow.GraphFrame)
+            assert isinstance(self.gf, callflow.GraphFrame)
 
     def union_df(self):
         """

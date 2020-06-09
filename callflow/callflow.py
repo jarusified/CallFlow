@@ -211,13 +211,18 @@ class CallFlow:
             os.makedirs(self.props["save_path"])
             os.makedirs(os.path.join(self.props["save_path"], "ensemble"))
 
+        dataset_folders = []
         for dataset in self.props["datasets"]:
-            dataset_dir = os.path.join(self.props["save_path"], dataset["name"])
+            dataset_folders.append(dataset["name"])
+        dataset_folders.append("ensemble")
+
+        for dataset in dataset_folders:
+            dataset_dir = os.path.join(self.props["save_path"], dataset)
             LOGGER.debug(dataset_dir)
             if not os.path.exists(dataset_dir):
                 # if self.debug:
                 LOGGER.debug(
-                    f"Creating .callflow directory for dataset : {dataset['name']}"
+                    f"Creating .callflow directory for dataset : {dataset}"
                 )
                 os.makedirs(dataset_dir)
 
