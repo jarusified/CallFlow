@@ -7,7 +7,7 @@ import callflow
 from networkx.readwrite import json_graph
 
 from callflow.operations import Process, Group, Filter
-from callflow.modules import EnsembleAuxiliary
+from callflow.modules import EnsembleAuxiliary, SingleAuxiliary
 
 LOGGER = callflow.get_logger(__name__)
 
@@ -125,13 +125,13 @@ class SuperGraph(object):
         assert isinstance(filter_res.gf, callflow.GraphFrame)
         self.gf = filter_res.gf
 
-    def auxiliary(self, MPIBinCount=20, RunBinCount=20, process=True, write=True):
-        datasets = self.props["dataset_names"]
-        props = self.props
-        EnsembleAuxiliary(
-            self.gf, datasets, self.props, MPIBinCount, RunBinCount, process, write
-        )
+    def auxiliary(self, datasets, MPIBinCount=20, RunBinCount=20, process=True, write=True):
+        EnsembleAuxiliary(self.gf, datasets=datasets, props=self.props, MPIBinCount=MPIBinCount, RunBinCount=RunBinCount, process=process, write=write)
 
+    def single_auxiliary(self, dataset="", binCount=20, process=True):
+        SingleAuxiliary(self.gf, dataset=dataset, props=self.props, MPIBinCount=binCount, process=process)
+
+    
     def get_top_n_callsites_by_attr(self, count, sort_attr):
         """
         Returns an array of callsites (sorted by `sort_attr`)

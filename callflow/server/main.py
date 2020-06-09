@@ -243,7 +243,7 @@ class CallFlowServer:
             if self.debug:
                 LOGGER.debug("[Socket request] single_callsite_data. {}".format(data))
 
-            result = self.callflow.request(
+            result = self.callflow.request_single(
                 {
                     "name": "auxiliary",
                     "dataset": data["dataset"],

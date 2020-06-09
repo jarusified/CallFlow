@@ -68,7 +68,7 @@ export default {
 		},
 		left: false,
 		formats: ["CCT", "SuperGraph"],
-		selectedFormat: "CCT",
+		selectedFormat: "SuperGraph",
 		datasets: [],
 		selectedTargetDataset: "",
 		selectedDataset2: "",

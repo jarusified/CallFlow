@@ -3,6 +3,7 @@ import json
 
 import callflow
 from callflow import SuperGraph, EnsembleGraph, CCT
+from callflow.modules import EnsembleAuxiliary
 
 LOGGER = callflow.get_logger(__name__)
 
@@ -61,6 +62,12 @@ class CallFlow:
         # Store the graphframe.
         supergraph.write_gf("entire")
 
+        supergraph.single_auxiliary(
+            dataset=dataset_name,
+            binCount=20,
+            process=True,
+        )
+
     def _process_ensemble(self):
         """
         Ensemble processing of datasets. 
@@ -81,6 +88,12 @@ class CallFlow:
 
             # Write the entire graphframe into .callflow.
             single_supergraphs[dataset_name].write_gf("entire")
+
+            single_supergraphs[dataset_name].single_auxiliary(
+                dataset=dataset_name,
+                binCount=20,
+                process=True,
+            )
 
         # Create a dataset for ensemble case.
         ensemble_supergraph = EnsembleGraph(
@@ -106,6 +119,7 @@ class CallFlow:
         ensemble_supergraph.auxiliary(
             # MPIBinCount=self.currentMPIBinCount,
             # RunBinCount=self.currentRunBinCount,
+            datasets=self.props["dataset_names"],
             MPIBinCount=20,
             RunBinCount=20,
             process=True,
@@ -120,7 +134,9 @@ class CallFlow:
         supergraphs = {}
         # Only consider the first dataset from the listing.
         dataset_name = self.props["dataset_names"][0]
-        supergraphs[dataset_name] = SuperGraph(props=self.props, tag=dataset_name, mode="render")
+        supergraphs[dataset_name] = SuperGraph(
+            props=self.props, tag=dataset_name, mode="render"
+        )
 
         return supergraphs
 
@@ -138,7 +154,9 @@ class CallFlow:
                 read_parameter=self.props["read_parameter"]
             )
 
-        supergraphs["ensemble"] = EnsembleGraph(props=self.props, tag="ensemble", mode="render")
+        supergraphs["ensemble"] = EnsembleGraph(
+            props=self.props, tag="ensemble", mode="render"
+        )
         supergraphs["ensemble"].read_gf(read_parameter=self.props["read_parameter"])
         supergraphs["ensemble"].read_auxiliary_data()
         return supergraphs
@@ -162,15 +180,11 @@ class CallFlow:
             self.props["maxIncTime"][tag] = (
                 self.supergraphs[tag].gf.df["time (inc)"].max()
             )
-            self.props["maxExcTime"][tag] = (
-                self.supergraphs[tag].gf.df["time"].max()
-            )
+            self.props["maxExcTime"][tag] = self.supergraphs[tag].gf.df["time"].max()
             self.props["minIncTime"][tag] = (
                 self.supergraphs[tag].gf.df["time (inc)"].min()
             )
-            self.props["minExcTime"][tag] = (
-                self.supergraphs[tag].gf.df["time"].min()
-            )
+            self.props["minExcTime"][tag] = self.supergraphs[tag].gf.df["time"].min()
             # self.props["numOfRanks"][dataset] = len(
             #     self.datasets[dataset].gf.df["rank"].unique()
             # )
@@ -211,6 +225,7 @@ class CallFlow:
                 "df.csv",
                 "nxg.json",
                 "hatchet_tree.txt",
+                "all_data.json"
             ]
             for f in files:
                 fname = os.path.join(dataset_dir, f)
@@ -256,11 +271,11 @@ class CallFlow:
             return {}
 
         elif operation_tag == "auxiliary":
-            auxiliary = Auxiliary(
-                self.states[operation["dataset"]],
-                binCount=operation["binCount"],
-                dataset=operation["dataset"],
-                config=self.config,
+            auxiliary = EnsembleAuxiliary(
+                supergraphs=self.supergraphs,
+                tag=operation["dataset"],
+                MPIBinCount=operation["binCount"],
+                # dataset=operation["dataset"],
             )
             return auxiliary.result
 
@@ -278,7 +293,7 @@ class CallFlow:
             graph = CCT(
                 supergraphs=self.supergraphs,
                 tag=operation["dataset"],
-                callsite_count=operation["functionsInCCT"]
+                callsite_count=operation["functionsInCCT"],
             )
             return graph.g
 

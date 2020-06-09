@@ -30,20 +30,22 @@ from callflow.timer import Timer
 class EnsembleAuxiliary:
     def __init__(
         self,
-        gf,
-        datasets,
-        props,
+        gf=callflow.GraphFrame,
+        datasets=[],
+        props={},
         MPIBinCount="20",
         RunBinCount="20",
         process=True,
         write=False,
     ):
+        self.gf = gf
         self.MPIBinCount = MPIBinCount
         self.RunBinCount = RunBinCount
-        self.props = props
-        self.datasets = datasets
         self.timer = Timer()
-        self.df = self.select_rows(gf.df, datasets)
+        self.props = props
+        self.datasets = self.props["dataset_names"]
+
+        self.df = self.select_rows(self.gf.df, self.datasets)
 
         self.process = process
         self.write = write
@@ -51,7 +53,10 @@ class EnsembleAuxiliary:
         self.hist_props = ["rank", "name", "dataset", "all_ranks"]
         self.filter = True
 
-        self.compute()
+        if process:
+            self.compute()
+        else:
+            self.read()
         print(self.timer)
 
     def compute(self):

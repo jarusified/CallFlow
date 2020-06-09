@@ -21,13 +21,13 @@ from callflow.timer import Timer
 
 
 class SingleAuxiliary:
-    def __init__(self, state, binCount="20", dataset="", config={}, process=True):
-        self.graph = state.new_gf.graph
-        self.df = state.new_gf.df
-        self.config = config
+    def __init__(self, gf, dataset="", MPIBinCount=20, props={}, process=True):
+        self.graph = gf.graph
+        self.df = gf.df
+        self.props = props
         self.process = process
         self.dataset = dataset
-        self.binCount = binCount
+        self.binCount = MPIBinCount
 
         ret_df = pd.DataFrame([])
         self.timer = Timer()
@@ -104,7 +104,7 @@ class SingleAuxiliary:
             "time": group_df["time"].tolist(),
             "sorted_time (inc)": group_df["time (inc)"].sort_values().tolist(),
             "sorted_time": group_df["time"].sort_values().tolist(),
-            "rank": group_df["rank"].tolist(),
+            # "rank": group_df["rank"].tolist(),
             "id": "node-" + str(group_df["nid"].tolist()[0]),
             "mean_time (inc)": group_df["time (inc)"].mean(),
             "mean_time": group_df["time"].mean(),
@@ -169,8 +169,7 @@ class SingleAuxiliary:
     def run(self):
         ret = {}
         path = (
-            self.config.processed_path
-            + f"/{self.config.runName}"
+            self.props["save_path"]
             + f"/{self.dataset}/all_data.json"
         )
 
