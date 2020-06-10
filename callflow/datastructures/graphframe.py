@@ -68,14 +68,17 @@ class GraphFrame(ht.GraphFrame):
         """
         Create GraphFrame from 3 sets of information : df, graph, nxg. 
         """
-        # Create a graphframe.
-
+        # Hatchet requires node and rank to be indexes. 
         data["df"] = data["df"].set_index(["node", "rank"])
+
+        # Create a graphframe using Hatchet. 
         gf = GraphFrame(dataframe=data["df"], graph=data["graph"])
 
         # Store the nxg.
         gf.nxg = data["nxg"]
 
+        # remove the set indexes to maintain consistency. 
+        gf.df = gf.df.reset_index(drop=False)
         return gf
 
     # --------------------------------------------------------------------------

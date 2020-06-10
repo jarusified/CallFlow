@@ -9,7 +9,7 @@ LOGGER = callflow.get_logger(__name__)
 
 class Filter:
     def __init__(
-        self, gf=None, nxg=None, mode="single", filter_by="time (inc)", filter_perc="10"
+        self, gf=None, mode="single", filter_by="time (inc)", filter_perc="10"
     ):
         self.gf = gf
         self.filter_perc = filter_perc

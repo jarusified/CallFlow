@@ -3,9 +3,12 @@ import json
 import copy
 import pandas as pd
 import networkx as nx
-import callflow
 from networkx.readwrite import json_graph
+from ast import literal_eval as make_list
 
+
+import callflow
+from callflow.timer import Timer
 from callflow.operations import Process, Group, Filter
 from callflow.modules import EnsembleAuxiliary, SingleAuxiliary
 
@@ -14,8 +17,8 @@ LOGGER = callflow.get_logger(__name__)
 
 class SuperGraph(object):
     def __init__(self, props={}, tag="", mode="process"):
-        # TODO: rename this to self.supergraphs.
-        # self.datasets = datasets
+        self.timer = Timer()
+
         # Props is the information contained in config object.
         # We duplicate this to add more information to config and not modify it as a side effect.
         self.props = props
@@ -27,6 +30,16 @@ class SuperGraph(object):
 
         # Mode is either process or render.
         self.mode = mode
+        
+        self.target_df = {}
+        self.target_modules = {}
+        self.target_module_group_df = {}
+        self.target_module_name_group_df = {}
+        self.target_module_callsite_map = {}
+        self.target_module_time_inc_map = {}
+        self.target_module_time_exc_map = {}
+        self.target_name_time_inc_map = {}
+        self.target_name_time_exc_map = {}
 
         # Create a graphframe based on the mode.
         if mode == "process":
@@ -36,6 +49,12 @@ class SuperGraph(object):
             self.create_gf(data=data)
             self.auxiliary_data = self.read_auxiliary_data()
 
+            with self.timer.phase(f"Creating the data maps."):
+                self.cct_df = self.gf.df[self.gf.df["name"].isin(self.gf.nxg.nodes())]
+                self.create_ensemble_maps()
+                for dataset in self.props["dataset_names"]:
+                    self.create_target_maps(dataset)
+                
         self.projection_data = {}
 
     def _getter(self):
@@ -103,28 +122,33 @@ class SuperGraph(object):
 
     def group_gf(self, group_by="module"):
         """
-        TODO: We have to do this using setter only. 
         Group the graphframe based on `group_by` parameter. 
         """
-        group = Group(self.gf, group_by)
+        gf = self._getter()
+        group = Group(gf, group_by)
 
-        assert isinstance(group.gf, callflow.GraphFrame)
-        self.gf = group.gf
+        self._setter(group.gf)
 
     def filter_gf(self, mode="single"):
         """
-        TODO: We have to do this using setter only. 
         Filter the graphframe. 
         """
-        gf = self.gf
+        print(self.gf)
+        gf = self._getter()
+        print(gf)
         filter_res = Filter(
-            gf,
+            gf=gf,
             mode=mode,
             filter_by=self.props["filter_by"],
             filter_perc=self.props["filter_perc"],
         )
-        assert isinstance(filter_res.gf, callflow.GraphFrame)
-        self.gf = filter_res.gf
+        self._setter(filter_res.gf)
+
+    def ensemble_gf(self, supergraphs):
+
+        EnsembleGraph(
+            self.props, "ensemble", mode="process", supergraphs=single_supergraphs
+        )
 
     def ensemble_auxiliary(self, datasets, MPIBinCount=20, RunBinCount=20, process=True, write=True):
         EnsembleAuxiliary(self.gf, datasets=datasets, props=self.props, MPIBinCount=MPIBinCount, RunBinCount=RunBinCount, process=process, write=write)
@@ -141,7 +165,6 @@ class SuperGraph(object):
         callsites_df = sort_xgroup_df.nlargest(count, sort_attr)
         return callsites_df.index.values.tolist()
 
-    # TODO: Remove the flags on read_df, read_nxg.
     def read_gf(self, read_parameter=True, read_graph=False):
         """
         # Read a single dataset stored in .callflow directory.
@@ -177,6 +200,7 @@ class SuperGraph(object):
                 for num in line.strip().split(","):
                     split_num = num.split("=")
                     parameters[split_num[0]] = split_num[1]
+
         return {"df": df, "nxg": nxg, "graph": graph, "parameters": parameters}
 
     def write_gf(self, write_df=True, write_graph=False, write_nxg=True):
@@ -315,16 +339,6 @@ class SuperGraph(object):
         return hierarchy
 
     def create_target_maps(self, dataset):
-        self.target_df = {}
-        self.target_modules = {}
-        self.target_module_group_df = {}
-        self.target_module_name_group_df = {}
-        self.target_module_callsite_map = {}
-        self.target_module_time_inc_map = {}
-        self.target_module_time_exc_map = {}
-        self.target_name_time_inc_map = {}
-        self.target_name_time_exc_map = {}
-
         # Reduce the entire_df to respective target dfs.
         self.target_df[dataset] = self.gf.df.loc[
             self.gf.df["dataset"] == dataset
@@ -382,7 +396,7 @@ class SuperGraph(object):
         self.module_time_exc_map = self.module_group_df["time"].max().to_dict()
         self.name_time_exc_map = self.module_name_group_df["time"].max().to_dict()
 
-    def _remove_cycles_in_paths(self, path):
+    def remove_cycles_in_paths(self, path):
         ret = []
         moduleMapper = {}
         dataMap = {}

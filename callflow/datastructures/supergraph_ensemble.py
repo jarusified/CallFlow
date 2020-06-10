@@ -5,45 +5,37 @@ import math, json
 from ast import literal_eval as make_list
 
 import callflow
-from callflow import Dataset
 
 LOGGER = callflow.get_logger(__name__)
-from callflow.timer import Timer
 from callflow import SuperGraph
 
 
 class EnsembleSuperGraph(SuperGraph):
     def __init__(
         self,
-        states,
-        path,
+        supergraphs={},
+        tag="",
+        path="path",
         group_by_attr="module",
+        props={},
         construct_graph=True,
         add_data=False,
         reveal_callsites=[],
         split_entry_module="",
         split_callee_module="",
     ):
-        super(EnsembleSuperGraph, self).__init__()
-        self.states = states
-        self.timer = Timer()
-
-        # Store the ensemble graph (Since it is already processed.)
-        self.state_entire = self.states["ensemble_entire"]
-        # self.state_filter = self.states["ensemble_filter"]
-        self.state_group = self.states["ensemble_group"]
-        self.ensemble_g = self.state_group.gf.nxg
-        self.node_list = np.array(list(self.ensemble_g.nodes()))
-
-        # Path type to group by
-        # TODO: Generalize to any group the user provides.
+        self.props = props
+        self.tag = tag
+        super(EnsembleSuperGraph, self).__init__( props=props, tag=tag, mode="render" )
+        self.supergraphs= supergraphs
         self.path = path
         self.group_by = group_by_attr
 
-        self.entire_df = self.state_entire.new_gf.df
-        # self.group_df = self.state_group.new_gf.df
+        # Need to remove. 
+        self.ensemble_supergraph = self.supergraphs["ensemble"]
+        self.group_df = self.ensemble_supergraph.gf.df
+
         # Columns to consider.
-        # TODO: Generalize it either all columns or let user specify the value using config.json
         self.columns = [
             "time (inc)",
             "module",
@@ -54,13 +46,7 @@ class EnsembleSuperGraph(SuperGraph):
             "actual_time",
         ]
 
-        # Store all the names of runs in self.runs.
-        # TODO: Change name in the df from 'dataset' to 'run'
-        self.runs = self.entire_df["dataset"].unique()
-
-        with self.timer.phase("Creating data maps"):
-            self.create_ensemble_maps()
-            self.create_target_maps()
+        self.runs = self.group_df["dataset"].unique()
 
         self.reveal_callsites = reveal_callsites
         self.split_entry_module = split_entry_module
@@ -69,11 +55,11 @@ class EnsembleSuperGraph(SuperGraph):
         with self.timer.phase("Construct Graph"):
             if construct_graph:
                 LOGGER.info(
-                    "Creating a SuperGraph for {0}.".format(self.state_group.name)
+                    "Creating a SuperGraph for {0}.".format(self.supergraphs.keys())
                 )
 
                 self.cct = nx.DiGraph()
-                self.agg_g = nx.DiGraph()
+                self.agg_nxg = nx.DiGraph() 
                 self.add_paths(path)
                 self.add_reveal_paths(self.reveal_callsites)
                 if self.split_entry_module != "":
@@ -140,7 +126,7 @@ class EnsembleSuperGraph(SuperGraph):
                 source = edge["source"]
                 target = edge["target"]
 
-                if not self.agg_g.has_edge(source, target):
+                if not self.agg_nxg.has_edge(source, target):
                     if idx == 0:
                         source_callsite = source
                         source_df = self.module_group_df.get_group((module))
@@ -164,9 +150,9 @@ class EnsembleSuperGraph(SuperGraph):
                     edge_type = "normal"
 
                     print(f"Adding edge: {source_callsite}, {target_callsite}")
-                    self.agg_g.add_node(source, attr_dict={"type": source_node_type})
-                    self.agg_g.add_node(target, attr_dict={"type": target_node_type})
-                    self.agg_g.add_edge(
+                    self.agg_nxg.add_node(source, attr_dict={"type": source_node_type})
+                    self.agg_nxg.add_node(target, attr_dict={"type": target_node_type})
+                    self.agg_nxg.add_edge(
                         source,
                         target,
                         attr_dict=[
@@ -232,7 +218,7 @@ class EnsembleSuperGraph(SuperGraph):
         return ret
 
     def add_entry_callsite_paths(self, reveal_module):
-        entry_functions_map = self.module_entry_functions_map(self.agg_g)
+        entry_functions_map = self.module_entry_functions_map(self.agg_nxg)
         reveal_callsites = entry_functions_map[reveal_module]
         paths = self.callsitePathInformation(reveal_callsites)
 
@@ -249,13 +235,13 @@ class EnsembleSuperGraph(SuperGraph):
 
             if len(source_edges_to_remove) != 0:
                 for edge in source_edges_to_remove:
-                    if self.agg_g.has_edge(edge["source"], edge["target"]):
-                        self.agg_g.remove_edge((edge["source"], edge["target"]))
-                    self.agg_g.add_node(
+                    if self.agg_nxg.has_edge(edge["source"], edge["target"]):
+                        self.agg_nxg.remove_edge((edge["source"], edge["target"]))
+                    self.agg_nxg.add_node(
                         reveal_module + "=" + edge["source_callsite"],
                         attr_dict={"type": "component-node"},
                     )
-                    self.agg_g.add_edge(
+                    self.agg_nxg.add_edge(
                         (reveal_module + "=" + edge["source_callsite"], edge["target"]),
                         attr_dict=[
                             {
@@ -272,13 +258,13 @@ class EnsembleSuperGraph(SuperGraph):
 
             if len(target_edges_to_remove) != 0:
                 for edge in target_edges_to_remove:
-                    if self.agg_g.has_edge(edge["source"], edge["target"]):
-                        self.agg_g.remove_edge(edge["source"], edge["target"])
-                    self.agg_g.add_node(
+                    if self.agg_nxg.has_edge(edge["source"], edge["target"]):
+                        self.agg_nxg.remove_edge(edge["source"], edge["target"])
+                    self.agg_nxg.add_node(
                         reveal_module + "=" + edge["target_callsite"],
                         attr_dict={"type": "component-node"},
                     )
-                    self.agg_g.add_edge(
+                    self.agg_nxg.add_edge(
                         edge["source"],
                         reveal_module + "=" + edge["target_callsite"],
                         attr_dict=[
@@ -294,13 +280,13 @@ class EnsembleSuperGraph(SuperGraph):
                         ],
                     )
 
-        self.agg_g.remove_node(reveal_module)
+        self.agg_nxg.remove_node(reveal_module)
 
     def add_paths(self, path):
         paths_df = self.group_df.groupby(["name", "group_path"])
 
         for (callsite, path_str), path_df in paths_df:
-            path_list = self.construct_cycle_free_paths(path_str)
+            path_list = self.remove_cycles_in_paths(path_str)
             for callsite_idx, callsite in enumerate(path_list):
                 if callsite_idx != len(path_list) - 1:
                     source = path_list[callsite_idx]
@@ -319,8 +305,8 @@ class EnsembleSuperGraph(SuperGraph):
                         (target_module, target_callsite)
                     )
 
-                    has_caller_edge = self.agg_g.has_edge(source_module, target_module)
-                    has_callback_edge = self.agg_g.has_edge(
+                    has_caller_edge = self.agg_nxg.has_edge(source_module, target_module)
+                    has_callback_edge = self.agg_nxg.has_edge(
                         target_module, source_module
                     )
                     has_cct_edge = self.cct.has_edge(source_callsite, target_callsite)
@@ -360,21 +346,21 @@ class EnsembleSuperGraph(SuperGraph):
                         print(
                             f"Add {edge_type} edge for : {source_module}--{target_module}"
                         )
-                        self.agg_g.add_node(source_module, attr_dict=node_dict)
-                        self.agg_g.add_node(target_module, attr_dict=node_dict)
-                        self.agg_g.add_edge(
+                        self.agg_nxg.add_node(source_module, attr_dict=node_dict)
+                        self.agg_nxg.add_node(target_module, attr_dict=node_dict)
+                        self.agg_nxg.add_edge(
                             source_module, target_module, attr_dict=[edge_dict]
                         )
 
                     elif not has_cct_edge and not has_callback_edge:
                         # print(f"Edge already exists for : {source_module}--{target_module}")
-                        edge_data = self.agg_g.get_edge_data(
+                        edge_data = self.agg_nxg.get_edge_data(
                             *(source_module, target_module)
                         )
-                        self.agg_g[source_module][target_module]["attr_dict"].append(
+                        self.agg_nxg[source_module][target_module]["attr_dict"].append(
                             edge_dict
                         )
-                        # print(agg_g[source_module][target_module])
+                        # print(agg_nxg[source_module][target_module])
 
                     if not has_cct_edge:
                         self.cct.add_edge(
@@ -384,21 +370,21 @@ class EnsembleSuperGraph(SuperGraph):
                         )
 
     def add_edge_attributes(self):
-        # runs_mapping = self.run_counts(self.agg_g)
-        # nx.set_edge_attributes(self.agg_g, name="number_of_runs", values=runs_mapping)
-        edge_type_mapping = self.edge_type(self.agg_g)
-        nx.set_edge_attributes(self.agg_g, name="edge_type", values=edge_type_mapping)
-        flow_mapping = self.flows(self.agg_g)
-        nx.set_edge_attributes(self.agg_g, name="weight", values=flow_mapping)
-        # target_flow_mapping = self.target_flows(self.agg_g)
-        # nx.set_edge_attributes(self.agg_g, name="target_weight", values=target_flow_mapping)
-        entry_functions_mapping = self.entry_functions(self.agg_g)
+        # runs_mapping = self.run_counts(self.agg_nxg)
+        # nx.set_edge_attributes(self.agg_nxg, name="number_of_runs", values=runs_mapping)
+        edge_type_mapping = self.edge_type(self.agg_nxg)
+        nx.set_edge_attributes(self.agg_nxg, name="edge_type", values=edge_type_mapping)
+        flow_mapping = self.flows(self.agg_nxg)
+        nx.set_edge_attributes(self.agg_nxg, name="weight", values=flow_mapping)
+        # target_flow_mapping = self.target_flows(self.agg_nxg)
+        # nx.set_edge_attributes(self.agg_nxg, name="target_weight", values=target_flow_mapping)
+        entry_functions_mapping = self.entry_functions(self.agg_nxg)
         nx.set_edge_attributes(
-            self.agg_g, name="entry_callsites", values=entry_functions_mapping
+            self.agg_nxg, name="entry_callsites", values=entry_functions_mapping
         )
-        exit_functions_mapping = self.exit_functions(self.agg_g)
+        exit_functions_mapping = self.exit_functions(self.agg_nxg)
         nx.set_edge_attributes(
-            self.agg_g, name="exit_callsites", values=exit_functions_mapping
+            self.agg_nxg, name="exit_callsites", values=exit_functions_mapping
         )
 
     def run_counts(self, graph):
@@ -415,7 +401,7 @@ class EnsembleSuperGraph(SuperGraph):
 
     def flows(self, graph):
         self.weight_map = {}
-        for edge in self.agg_g.edges(data=True):
+        for edge in self.agg_nxg.edges(data=True):
             if (edge[0], edge[1]) not in self.weight_map:
                 self.weight_map[(edge[0], edge[1])] = 0
 
@@ -441,7 +427,7 @@ class EnsembleSuperGraph(SuperGraph):
 
     def target_flows(self, graph):
         self.weight_map = {}
-        for edge in self.agg_g.edges(data=True):
+        for edge in self.agg_nxg.edges(data=True):
             if (edge[0], edge[1]) not in self.weight_map:
                 self.weight_map[(edge[0], edge[1])] = 0
 
@@ -498,16 +484,16 @@ class EnsembleSuperGraph(SuperGraph):
         return exit_functions
 
     def add_node_attributes(self):
-        ensemble_mapping = self.ensemble_map(self.agg_g.nodes())
+        ensemble_mapping = self.ensemble_map(self.agg_nxg.nodes())
 
         for idx, key in enumerate(ensemble_mapping):
-            nx.set_node_attributes(self.agg_g, name=key, values=ensemble_mapping[key])
+            nx.set_node_attributes(self.agg_nxg, name=key, values=ensemble_mapping[key])
 
         dataset_mapping = {}
         for run in self.runs:
-            dataset_mapping[run] = self.dataset_map(self.agg_g.nodes(), run)
+            dataset_mapping[run] = self.dataset_map(self.agg_nxg.nodes(), run)
 
-            nx.set_node_attributes(self.agg_g, name=run, values=dataset_mapping[run])
+            nx.set_node_attributes(self.agg_nxg, name=run, values=dataset_mapping[run])
 
     def callsite_time(self, group_df, module, callsite):
         callsite_df = group_df.get_group((module, callsite))
@@ -532,7 +518,7 @@ class EnsembleSuperGraph(SuperGraph):
         ret = {}
 
         # loop through the nodes
-        for node in self.agg_g.nodes(data=True):
+        for node in self.agg_nxg.nodes(data=True):
             node_name = node[0]
             node_dict = node[1]["attr_dict"]
 
@@ -584,7 +570,7 @@ class EnsembleSuperGraph(SuperGraph):
 
     def dataset_map(self, nodes, run):
         ret = {}
-        for node in self.agg_g.nodes(data=True):
+        for node in self.agg_nxg.nodes(data=True):
             node_name = node[0]
             node_dict = node[1]["attr_dict"]
             if node_name in self.target_module_callsite_map[run].keys():

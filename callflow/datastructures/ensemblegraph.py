@@ -21,12 +21,6 @@ class EnsembleGraph(SuperGraph):
         # For each callsite we store the vector here.
         self.vector = {}
 
-    def _getter(self):
-        pass
-
-    def _setter(self):
-        pass
-
     def create_gf(self, data=None):
         """
         Create the graphframes for the ensemble operation. 

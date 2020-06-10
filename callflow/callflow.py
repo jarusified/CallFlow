@@ -2,8 +2,8 @@ import os
 import json
 
 import callflow
-from callflow import SuperGraph, EnsembleGraph, CCT
-from callflow.modules import EnsembleAuxiliary
+from callflow import SuperGraph, EnsembleGraph, CCT, EnsembleSuperGraph
+from callflow.modules import EnsembleAuxiliary, ModuleHierarchy, ParameterProjection
 
 LOGGER = callflow.get_logger(__name__)
 
@@ -31,11 +31,10 @@ class CallFlow:
         else:
             if ensemble:
                 self.supergraphs = self._read_ensemble()
+                assert ensemble == (len(self.supergraphs.keys()) > 1)
+                assert len(self.props["dataset_names"]) == len(self.supergraphs.keys()) - 1
             else:
                 self.supergraphs = self._read_single()
-
-            assert ensemble == (len(self.supergraphs.keys()) > 1)
-            assert len(self.props["dataset_names"]) == len(self.supergraphs.keys())
 
             self.add_basic_info_to_props()
 
@@ -63,9 +62,7 @@ class CallFlow:
         supergraph.write_gf("entire")
 
         supergraph.single_auxiliary(
-            dataset=dataset_name,
-            binCount=20,
-            process=True,
+            dataset=dataset_name, binCount=20, process=True,
         )
 
     def _process_ensemble(self):
@@ -90,15 +87,15 @@ class CallFlow:
             single_supergraphs[dataset_name].write_gf("entire")
 
             single_supergraphs[dataset_name].single_auxiliary(
-                dataset=dataset_name,
-                binCount=20,
-                process=True,
+                dataset=dataset_name, binCount=20, process=True,
             )
 
         # Create a dataset for ensemble case.
         ensemble_supergraph = EnsembleGraph(
             self.props, "ensemble", mode="process", supergraphs=single_supergraphs
         )
+
+        print(ensemble_supergraph.gf)
 
         # Write the graphframe to file.
         ensemble_supergraph.write_gf("entire")
@@ -221,17 +218,10 @@ class CallFlow:
             LOGGER.debug(dataset_dir)
             if not os.path.exists(dataset_dir):
                 # if self.debug:
-                LOGGER.debug(
-                    f"Creating .callflow directory for dataset : {dataset}"
-                )
+                LOGGER.debug(f"Creating .callflow directory for dataset : {dataset}")
                 os.makedirs(dataset_dir)
 
-            files = [
-                "df.csv",
-                "nxg.json",
-                "hatchet_tree.txt",
-                "auxiliary_data.json"
-            ]
+            files = ["df.csv", "nxg.json", "hatchet_tree.txt", "auxiliary_data.json"]
             for f in files:
                 fname = os.path.join(dataset_dir, f)
                 if not os.path.exists(fname):
@@ -329,16 +319,19 @@ class CallFlow:
             else:
                 split_callee_module = ""
 
-            self.states["ensemble_group"].g = EnsembleSuperGraph(
-                self.states,
-                "group_path",
+            ensemble_super_graph = EnsembleSuperGraph(
+                supergraphs=self.supergraphs,
+                tag="ensemble",
+                path="group_path",
+                group_by_attr="module",
+                props=self.props,
                 construct_graph=True,
                 add_data=True,
                 reveal_callsites=reveal_callsites,
                 split_entry_module=split_entry_module,
                 split_callee_module=split_callee_module,
-            ).agg_g
-            return self.states["ensemble_group"].g
+            )
+            return ensemble_super_graph.agg_nxg
 
         elif operation_tag == "scatterplot":
             if operation["plot"] == "bland-altman":
@@ -372,9 +365,7 @@ class CallFlow:
             return self.similarities
 
         elif operation_tag == "hierarchy":
-            mH = ModuleHierarchy(
-                self.states["ensemble_entire"], operation["module"], config=self.config
-            )
+            mH = ModuleHierarchy(self.supergraphs["ensemble"], operation["module"])
             return mH.result
 
         elif operation_tag == "projection":
@@ -385,7 +376,7 @@ class CallFlow:
             # with open(similarity_filepath, 'r') as similarity_file:
             #     self.similarities = json.load(similarity_file)
             result = ParameterProjection(
-                self.states["ensemble_entire"],
+                self.supergraphs["ensemble"],
                 self.similarities,
                 operation["targetDataset"],
                 n_cluster=operation["numOfClusters"],
@@ -411,22 +402,22 @@ class CallFlow:
 
         elif operation_tag == "auxiliary":
             print(f"Reprocessing: {operation['re-process']}")
-            aux = EnsembleAuxiliary(
-                self.states,
-                MPIBinCount=operation["MPIBinCount"],
-                RunBinCount=operation["RunBinCount"],
-                datasets=operation["datasets"],
-                config=self.config,
-                process=True,
-                write=False,
-            )
-            if operation["re-process"] == 1:
-                result = aux.run()
-            else:
-                result = self.states["all_data"]
-                result = aux.filter_dict(result)
+            # aux = EnsembleAuxiliary(
+            #     self.states,
+            #     MPIBinCount=operation["MPIBinCount"],
+            #     RunBinCount=operation["RunBinCount"],
+            #     datasets=operation["datasets"],
+            #     config=self.config,
+            #     process=True,
+            #     write=False,
+            # )
+            # if operation["re-process"] == 1:
+            #     result = aux.run()
+            # else:
             self.currentMPIBinCount = operation["MPIBinCount"]
             self.currentRunBinCount = operation["RunBinCount"]
+
+            return self.supergraphs["ensemble"].auxiliary_data
 
             return result
 

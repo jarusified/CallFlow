@@ -14,9 +14,8 @@ from callflow.timer import Timer
 
 
 class ModuleHierarchy:
-    def __init__(self, state, module, config={}):
-        self.df = state.new_gf.df
-        self.config = config
+    def __init__(self, supergraph, module):
+        self.df = supergraph.gf.df
         self.module = module
 
         # Create the Super node's hierarchy.
@@ -33,8 +32,8 @@ class ModuleHierarchy:
             if idx == len(path) - 1:
                 break
 
-            source = sanitizeName(path[idx])
-            target = sanitizeName(path[idx + 1])
+            source = callflow.utils.sanitize_name(path[idx])
+            target = callflow.utils.sanitize_name(path[idx + 1])
 
             edges.append({"source": source, "target": target})
         return edges

@@ -305,7 +305,7 @@ class CallFlowServer:
             """
             if self.debug:
                 LOGGER.debug("[Socket request] ensemble_callsite_data: {}".format(data))
-            result = self.callflow.request(
+            result = self.callflow.request_ensemble(
                 {
                     "name": "auxiliary",
                     "datasets": data["datasets"],
@@ -342,17 +342,16 @@ class CallFlowServer:
             Ensemble SuperGraph.
             :return: both SuperGraph networkx graphs (JSON format).
             """
-            if self.debug:
-                Logger.debug("[Socket request] ensemble_supergraph: {}".format(data))
+            LOGGER.debug("[Socket request] ensemble_supergraph: {}".format(data))
 
             datasets = data["datasets"]
             groupBy = data["groupBy"].lower()
-            nxg = self.callflow.request(
+            nxg = self.callflow.request_ensemble(
                 {"name": "supergraph", "groupBy": groupBy, "datasets": datasets}
             )
             result = json_graph.node_link_data(nxg)
-            # json_result = json.dumps(result)
-            emit("ensemble_supergraph", result, json=True)
+            json_result = json.dumps(result)
+            emit("ensemble_supergraph", json_result, json=True)
 
         @sockets.on("ensemble_similarity", namespace="/")
         def ensemble_similarity(data):
@@ -381,7 +380,7 @@ class CallFlowServer:
             """
             if self.debug:
                 LOGGER.debug(f"module_hierarchy {data}")
-            nxg = self.callflow.request(
+            nxg = self.callflow.request_ensemble(
                 {
                     "name": "hierarchy",
                     "datasets": data["datasets"],
@@ -401,7 +400,7 @@ class CallFlowServer:
             """
             if self.debug:
                 LOGGER.debug(f"parameter_projection: {data}")
-            result = self.callflow.request(
+            result = self.callflow.request_ensemble(
                 {
                     "name": "projection",
                     "datasets": data["datasets"],
