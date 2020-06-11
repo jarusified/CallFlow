@@ -61,7 +61,7 @@ class SingleSuperGraph(SuperGraph):
             else:
                 print("Using the existing graph from state {0}".format(self.state.name))
 
-        # Remove. 
+        # Remove.
         self.callbacks = []
         self.edge_direction = {}
 

@@ -402,8 +402,9 @@ class SuperGraph(object):
         LOGGER.info("Nodes in the tree: {0}".format(len(self.supergraph.gf.nxg.nodes)))
         LOGGER.info("Edges in the tree: {0}".format(len(self.supergraph.gf.nxg.edges)))
         LOGGER.info("Is it a tree? : {0}".format(nx.is_tree(self.supergraph.gf.nxg)))
-        LOGGER.info("Flow hierarchy: {0}".format(nx.flow_hierarchy(self.supergraph.gf.nxg)))
-
+        LOGGER.info(
+            "Flow hierarchy: {0}".format(nx.flow_hierarchy(self.supergraph.gf.nxg))
+        )
 
     # ------------------------------------------------------------------------------
     # Module hierarchy.
