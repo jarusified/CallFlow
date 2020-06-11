@@ -1,82 +1,92 @@
-##############################################################################
-# Copyright (c) 2018-2019, Lawrence Livermore National Security, LLC.
-# Produced at the Lawrence Livermore National Laboratory.
+# Copyright 2017-2020 Lawrence Livermore National Security, LLC and other
+# CallFlow Project Developers. See the top-level LICENSE file for details.
 #
-# This file is part of Callflow.
-# Created by Suraj Kesavan <kesavan1@llnl.gov>.
-# LLNL-CODE-741008. All rights reserved.
-#
-# For details, see: https://github.com/LLNL/Callflow
-# Please also read the LICENSE file for the MIT License notice.
-##############################################################################
+# SPDX-License-Identifier: MIT
+
+# ------------------------------------------------------------------------------
+# Library imports
 import math
 import pandas as pd
 import networkx as nx
 from ast import literal_eval as make_tuple
 
+# ------------------------------------------------------------------------------
+# CallFlow imports
 import callflow
 from callflow.timer import Timer
+from callflow import SuperGraph
 
+# ------------------------------------------------------------------------------
+# CCT Rendering class.
+class CCT(SuperGraph):
+    def __init__(self, supergraphs={}, tag="", props={}, callsite_count=50):
+        # Call the SuperGraph class init.
+        super(CCT, self).__init__(props=props, tag=tag, mode="render")
 
-class CCT:
-    def __init__(self, supergraphs={}, tag="", callsite_count=50):
-
-        self.timer = Timer()
-        self.dataset = supergraphs[tag]
-
-        # Get the current graph and df
-        self.entire_df = self.dataset.gf.df
+        # set the current graph being rendered.
+        self.supergraph = supergraphs[tag]
 
         # Number of runs in the state.
-        self.runs = self.entire_df["dataset"].unique()
+        self.runs = self.supergraph.gf.df["dataset"].unique()
         self.columns = ["time (inc)", "time", "name", "module"]
 
         # callsite count is bounded by the user's input.
         if callsite_count == None:
-            self.callsite_count = len(state.new_gf.df["name"].unique())
+            self.callsite_count = len(self.supergraph.gf.df["name"].unique())
         else:
             self.callsite_count = int(callsite_count)
-        self.callsites = self.get_top_n_callsites_by_attr(
-            self.callsite_count, "time (inc)"
-        )
-        self.fdf = self.entire_df[self.entire_df["name"].isin(self.callsites)]
 
-        self.datasets = self.fdf["dataset"].unique()
+        # Put the top callsites into a list.
+        self.callsites = self.get_top_n_callsites_by_attr(
+            df=self.supergraph.gf.df,
+            callsite_count=self.callsite_count,
+            sort_attr="time (inc)",
+        )
+
+        # Filter out the callsites not in the list.
+        self.supergraph.gf.df = self.supergraph.gf.df[
+            self.supergraph.gf.df["name"].isin(self.callsites)
+        ]
+        self.datasets = self.supergraph.gf.df["dataset"].unique()
+
         with self.timer.phase(f"Creating the ensemble CCT: {self.datasets}"):
-            self.g = nx.DiGraph()
+            self.supergraph.gf.nxg = nx.DiGraph()
+
+            # Add paths by "column" = path.
             self.add_paths("path")
 
-        with self.timer.phase(f"Creating the data maps."):
-            self.cct_df = self.entire_df[self.entire_df["name"].isin(self.g.nodes())]
-            self.dataset.create_ensemble_maps()
-            self.dataset.create_target_maps(tag)
-
+        # Add node and edge attributes.
         with self.timer.phase(f"Add node and edge attributes."):
             self.add_node_attributes()
             self.add_edge_attributes()
 
+        # Find cycles in the CCT.
         with self.timer.phase(f"Find cycles"):
-            self.g.cycles = self.find_cycle(self.g)
+            self.supergraph.gf.nxg.cycles = self.find_cycle(self.supergraph.gf.nxg)
 
         print(self.timer)
 
-    def get_top_n_callsites_by_attr(self, count, sort_attr):
+    def get_top_n_callsites_by_attr(
+        self, df=pd.DataFrame([]), callsite_count=50, sort_attr="time (inc)"
+    ):
         """
+        Fetches the top n callsites based on attribute (time/time (inc)).
         """
-        xgroup_df = self.entire_df.groupby(["name"]).mean()
+        xgroup_df = self.supergraph.gf.df.groupby(["name"]).mean()
         sort_xgroup_df = xgroup_df.sort_values(by=[sort_attr], ascending=False)
-        callsites_df = sort_xgroup_df.nlargest(count, sort_attr)
+        callsites_df = sort_xgroup_df.nlargest(callsite_count, sort_attr)
         return callsites_df.index.values.tolist()
 
     def ensemble_map(self, df, nodes):
         ret = {}
-
-        # loop through the nodes
-        for callsite in self.g.nodes():
-            if callsite not in self.dataset.props["callsite_module_map"]:
-                module = self.entire_df.loc[self.entire_df["name"] == callsite][
-                    "module"
-                ].unique()[0]
+        """
+        Construct the ensemble map
+        """
+        for callsite in self.supergraph.gf.nxg.nodes():
+            if callsite not in self.props["callsite_module_map"]:
+                module = self.supergraph.gf.df.loc[
+                    self.supergraph.gf.df["name"] == callsite
+                ]["module"].unique()[0]
             else:
                 module = self.props["callsite_module_map"][callsite]
 
@@ -84,9 +94,9 @@ class CCT:
                 if column not in ret:
                     ret[column] = {}
                 if column == "time (inc)":
-                    ret[column][callsite] = self.dataset.name_time_inc_map[(module, callsite)]
+                    ret[column][callsite] = self.name_time_inc_map[(module, callsite)]
                 elif column == "time":
-                    ret[column][callsite] = self.dataset.name_time_exc_map[(module, callsite)]
+                    ret[column][callsite] = self.name_time_exc_map[(module, callsite)]
                 elif column == "name":
                     ret[column][callsite] = callsite
                 elif column == "module":
@@ -95,16 +105,19 @@ class CCT:
         return ret
 
     def dataset_map(self, nodes, run):
+        """
+        Construct maps for each dataset. 
+        """
         ret = {}
-        for callsite in self.g.nodes():
-            if callsite not in self.dataset.props["callsite_module_map"]:
-                module = self.entire_df.loc[self.entire_df["name"] == callsite][
-                    "module"
-                ].unique()[0]
+        for callsite in self.supergraph.gf.nxg.nodes():
+            if callsite not in self.props["callsite_module_map"]:
+                module = self.supergraph.gf.df.loc[
+                    self.supergraph.gf.df["name"] == callsite
+                ]["module"].unique()[0]
             else:
-                module = self.dataset.props.callsite_module_map[callsite]
+                module = self.props["callsite_module_map"][callsite]
 
-            if callsite in self.dataset.target_module_callsite_map[run].keys():
+            if callsite in self.target_module_callsite_map[run].keys():
                 if callsite not in ret:
                     ret[callsite] = {}
 
@@ -128,24 +141,36 @@ class CCT:
         return ret
 
     def add_node_attributes(self):
-        ensemble_mapping = self.ensemble_map(self.entire_df, self.g.nodes())
+        ensemble_mapping = self.ensemble_map(
+            self.supergraph.gf.df, self.supergraph.gf.nxg.nodes()
+        )
 
         for idx, key in enumerate(ensemble_mapping):
-            nx.set_node_attributes(self.g, name=key, values=ensemble_mapping[key])
+            nx.set_node_attributes(
+                self.supergraph.gf.nxg, name=key, values=ensemble_mapping[key]
+            )
 
         dataset_mapping = {}
         for run in self.runs:
-            dataset_mapping[run] = self.dataset_map(self.g.nodes(), run)
-
-            nx.set_node_attributes(self.g, name=run, values=dataset_mapping[run])
+            dataset_mapping[run] = self.dataset_map(self.supergraph.gf.nxg.nodes(), run)
+            nx.set_node_attributes(
+                self.supergraph.gf.nxg, name=run, values=dataset_mapping[run]
+            )
 
     def add_edge_attributes(self):
-        num_of_calls_mapping = self.edge_map(self.g.edges(), "component_path")
-        nx.set_edge_attributes(self.g, name="count", values=num_of_calls_mapping)
+        num_of_calls_mapping = self.edge_map(
+            self.supergraph.gf.nxg.edges(), "component_path"
+        )
+        nx.set_edge_attributes(
+            self.supergraph.gf.nxg, name="count", values=num_of_calls_mapping
+        )
 
     def edge_map(self, edges, attr, source=None, orientation=None):
         counter = {}
-        if not self.g.is_directed() or orientation in (None, "original"):
+        if not self.supergraph.gf.nxg.is_directed() or orientation in (
+            None,
+            "original",
+        ):
 
             def tailhead(edge):
                 return edge[:2]
@@ -164,7 +189,7 @@ class CCT:
 
         ret = {}
         explored = []
-        for start_node in self.g.nbunch_iter(source):
+        for start_node in self.supergraph.gf.nxg.nbunch_iter(source):
             if start_node in explored:
                 # No loop is possible.
                 continue
@@ -176,7 +201,7 @@ class CCT:
             active_nodes = {start_node}
             previous_head = None
 
-            for edge in nx.edge_dfs(self.g, start_node, orientation):
+            for edge in nx.edge_dfs(self.supergraph.gf.nxg, start_node, orientation):
                 tail, head = tailhead(edge)
                 if edge not in counter:
                     counter[edge] = 0
@@ -204,7 +229,7 @@ class CCT:
         return edges
 
     def add_paths(self, path):
-        paths = self.fdf[path].tolist()
+        paths = self.supergraph.gf.df[path].tolist()
 
         for idx, path in enumerate(paths):
             if isinstance(path, float):
@@ -214,8 +239,8 @@ class CCT:
             for edge in source_targets:
                 source = edge["source"]
                 target = edge["target"]
-                if not self.g.has_edge(source, target):
-                    self.g.add_edge(source, target)
+                if not self.supergraph.gf.nxg.has_edge(source, target):
+                    self.supergraph.gf.nxg.add_edge(source, target)
 
     def find_cycle(self, G, source=None, orientation=None):
         if not G.is_directed() or orientation in (None, "original"):

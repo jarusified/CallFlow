@@ -1,15 +1,25 @@
+# Copyright 2017-2020 Lawrence Livermore National Security, LLC and other
+# CallFlow Project Developers. See the top-level LICENSE file for details.
+#
+# SPDX-License-Identifier: MIT
+
+# ------------------------------------------------------------------------------
+# Library imports
 import networkx as nx
 import numpy as np
 import pandas as pd
 import math, json
 from ast import literal_eval as make_list
 
+# ------------------------------------------------------------------------------
+# CallFlow imports
 import callflow
 
 LOGGER = callflow.get_logger(__name__)
 from callflow import SuperGraph
 
-
+# ------------------------------------------------------------------------------
+# Ensemble Super Graph class.
 class EnsembleSuperGraph(SuperGraph):
     def __init__(
         self,
@@ -24,14 +34,16 @@ class EnsembleSuperGraph(SuperGraph):
         split_entry_module="",
         split_callee_module="",
     ):
-        self.props = props
-        self.tag = tag
-        super(EnsembleSuperGraph, self).__init__( props=props, tag=tag, mode="render" )
-        self.supergraphs= supergraphs
+        # Call the SuperGraph class init.
+        super(EnsembleSuperGraph, self).__init__(props=props, tag=tag, mode="render")
+
+        # Stores all the SuperGraphs using a Map.
+        self.supergraphs = supergraphs
+
         self.path = path
         self.group_by = group_by_attr
 
-        # Need to remove. 
+        # Need to remove.
         self.ensemble_supergraph = self.supergraphs["ensemble"]
         self.group_df = self.ensemble_supergraph.gf.df
 
@@ -59,7 +71,7 @@ class EnsembleSuperGraph(SuperGraph):
                 )
 
                 self.cct = nx.DiGraph()
-                self.agg_nxg = nx.DiGraph() 
+                self.agg_nxg = nx.DiGraph()
                 self.add_paths(path)
                 self.add_reveal_paths(self.reveal_callsites)
                 if self.split_entry_module != "":
@@ -73,214 +85,6 @@ class EnsembleSuperGraph(SuperGraph):
             self.add_node_attributes()
             self.add_edge_attributes()
         print(self.timer)
-
-    def create_source_targets(self, component_path):
-        module = ""
-        edges = []
-        for idx, callsite in enumerate(component_path):
-            if idx == 0:
-                module = component_path[0]
-                edges.append(
-                    {
-                        "module": module,
-                        "source": module,
-                        "target": module + "=" + component_path[idx + 1],
-                    }
-                )
-                pass
-            elif idx == len(component_path) - 1:
-                pass
-            else:
-                edges.append(
-                    {
-                        "module": module,
-                        "source": module + "=" + component_path[idx],
-                        "target": module + "=" + component_path[idx + 1],
-                    }
-                )
-
-        return edges
-
-    def callsitePathInformation(self, callsites):
-        paths = []
-        for callsite in callsites:
-            df = self.name_group_df.get_group(callsite)
-            paths.append(
-                {
-                    "group_path": make_list(df["group_path"].unique()[0]),
-                    "path": make_list(df["path"].unique()[0]),
-                    "component_path": make_list(df["component_path"].unique()[0]),
-                }
-            )
-        return paths
-
-    def add_reveal_paths(self, reveal_callsites):
-        paths = self.callsitePathInformation(reveal_callsites)
-
-        for path in paths:
-            component_edges = self.create_source_targets(path["component_path"])
-            for idx, edge in enumerate(component_edges):
-                module = edge["module"]
-
-                # format module +  '=' + callsite
-                source = edge["source"]
-                target = edge["target"]
-
-                if not self.agg_nxg.has_edge(source, target):
-                    if idx == 0:
-                        source_callsite = source
-                        source_df = self.module_group_df.get_group((module))
-                        source_node_type = "super-node"
-                    else:
-                        source_callsite = source.split("=")[1]
-                        source_df = self.module_name_group_df.get_group(
-                            (module, source_callsite)
-                        )
-                        source_node_type = "component-node"
-
-                    target_callsite = target.split("=")[1]
-                    target_df = self.module_name_group_df.get_group(
-                        (module, target_callsite)
-                    )
-                    target_node_type = "component-node"
-
-                    source_weight = source_df["time (inc)"].max()
-                    target_weight = target_df["time (inc)"].max()
-
-                    edge_type = "normal"
-
-                    print(f"Adding edge: {source_callsite}, {target_callsite}")
-                    self.agg_nxg.add_node(source, attr_dict={"type": source_node_type})
-                    self.agg_nxg.add_node(target, attr_dict={"type": target_node_type})
-                    self.agg_nxg.add_edge(
-                        source,
-                        target,
-                        attr_dict=[
-                            {
-                                "source_callsite": source_callsite,
-                                "target_callsite": target_callsite,
-                                "edge_type": edge_type,
-                                "weight": target_weight,
-                                "edge_type": "reveal_edge",
-                            }
-                        ],
-                    )
-
-    ######################### Entry function interaction ################################
-
-    def module_entry_functions_map(self, graph):
-        entry_functions = {}
-        for edge in graph.edges(data=True):
-            attr_dict = edge[2]["attr_dict"]
-            edge_tuple = (edge[0], edge[1])
-            for edge_attr in attr_dict:
-                if edge_tuple[1] not in entry_functions:
-                    entry_functions[edge_tuple[1]] = []
-                entry_functions[edge_tuple[1]].append(edge_attr["target_callsite"])
-        return entry_functions
-
-    def create_source_targets_from_group_path(self, path):
-        module = ""
-        edges = []
-        for idx, callsite in enumerate(path):
-            if idx == len(path) - 1:
-                break
-            source = path[idx].split("=")
-            target = path[idx + 1].split("=")
-            edges.append(
-                {
-                    "source": source[0],
-                    "target": target[0],
-                    "source_callsite": source[1],
-                    "target_callsite": target[1],
-                }
-            )
-        return edges
-
-    def same_source_edges(self, component_edges, reveal_module):
-        ret = []
-        for idx, edge in enumerate(component_edges):
-            source = edge["source"]
-            target = edge["target"]
-
-            if source == reveal_module:
-                ret.append(edge)
-        return ret
-
-    def same_target_edges(self, component_edges, reveal_module):
-        ret = []
-        for idx, edge in enumerate(component_edges):
-            source = edge["source"]
-            target = edge["target"]
-
-            if target == reveal_module:
-                ret.append(edge)
-        return ret
-
-    def add_entry_callsite_paths(self, reveal_module):
-        entry_functions_map = self.module_entry_functions_map(self.agg_nxg)
-        reveal_callsites = entry_functions_map[reveal_module]
-        paths = self.callsitePathInformation(reveal_callsites)
-
-        for path in paths:
-            component_edges = self.create_source_targets_from_group_path(
-                path["group_path"]
-            )
-            source_edges_to_remove = self.same_source_edges(
-                component_edges, reveal_module
-            )
-            target_edges_to_remove = self.same_target_edges(
-                component_edges, reveal_module
-            )
-
-            if len(source_edges_to_remove) != 0:
-                for edge in source_edges_to_remove:
-                    if self.agg_nxg.has_edge(edge["source"], edge["target"]):
-                        self.agg_nxg.remove_edge((edge["source"], edge["target"]))
-                    self.agg_nxg.add_node(
-                        reveal_module + "=" + edge["source_callsite"],
-                        attr_dict={"type": "component-node"},
-                    )
-                    self.agg_nxg.add_edge(
-                        (reveal_module + "=" + edge["source_callsite"], edge["target"]),
-                        attr_dict=[
-                            {
-                                "source_callsite": edge["source_callsite"],
-                                "target_callsite": edge["target_callsite"],
-                                "edge_type": "normal",
-                                "weight": self.module_name_group_df.get_group(
-                                    (reveal_module, edge["source_callsite"])
-                                )["time (inc)"].max(),
-                                "edge_type": "reveal_edge",
-                            }
-                        ],
-                    )
-
-            if len(target_edges_to_remove) != 0:
-                for edge in target_edges_to_remove:
-                    if self.agg_nxg.has_edge(edge["source"], edge["target"]):
-                        self.agg_nxg.remove_edge(edge["source"], edge["target"])
-                    self.agg_nxg.add_node(
-                        reveal_module + "=" + edge["target_callsite"],
-                        attr_dict={"type": "component-node"},
-                    )
-                    self.agg_nxg.add_edge(
-                        edge["source"],
-                        reveal_module + "=" + edge["target_callsite"],
-                        attr_dict=[
-                            {
-                                "source_callsite": edge["source_callsite"],
-                                "target_callsite": edge["target_callsite"],
-                                "edge_type": "normal",
-                                "weight": self.module_name_group_df.get_group(
-                                    (edge["target"], edge["target_callsite"])
-                                )["time (inc)"].max(),
-                                "edge_type": "reveal_edge",
-                            }
-                        ],
-                    )
-
-        self.agg_nxg.remove_node(reveal_module)
 
     def add_paths(self, path):
         paths_df = self.group_df.groupby(["name", "group_path"])
@@ -305,7 +109,9 @@ class EnsembleSuperGraph(SuperGraph):
                         (target_module, target_callsite)
                     )
 
-                    has_caller_edge = self.agg_nxg.has_edge(source_module, target_module)
+                    has_caller_edge = self.agg_nxg.has_edge(
+                        source_module, target_module
+                    )
                     has_callback_edge = self.agg_nxg.has_edge(
                         target_module, source_module
                     )
@@ -372,16 +178,18 @@ class EnsembleSuperGraph(SuperGraph):
     def add_edge_attributes(self):
         # runs_mapping = self.run_counts(self.agg_nxg)
         # nx.set_edge_attributes(self.agg_nxg, name="number_of_runs", values=runs_mapping)
+
         edge_type_mapping = self.edge_type(self.agg_nxg)
         nx.set_edge_attributes(self.agg_nxg, name="edge_type", values=edge_type_mapping)
+
         flow_mapping = self.flows(self.agg_nxg)
         nx.set_edge_attributes(self.agg_nxg, name="weight", values=flow_mapping)
-        # target_flow_mapping = self.target_flows(self.agg_nxg)
-        # nx.set_edge_attributes(self.agg_nxg, name="target_weight", values=target_flow_mapping)
+
         entry_functions_mapping = self.entry_functions(self.agg_nxg)
         nx.set_edge_attributes(
             self.agg_nxg, name="entry_callsites", values=entry_functions_mapping
         )
+
         exit_functions_mapping = self.exit_functions(self.agg_nxg)
         nx.set_edge_attributes(
             self.agg_nxg, name="exit_callsites", values=exit_functions_mapping
@@ -425,6 +233,7 @@ class EnsembleSuperGraph(SuperGraph):
 
         return ret
 
+    # Not used.
     def target_flows(self, graph):
         self.weight_map = {}
         for edge in self.agg_nxg.edges(data=True):

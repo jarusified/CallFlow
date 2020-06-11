@@ -21,13 +21,13 @@ import uuid
 import argparse
 from networkx.readwrite import json_graph
 
+# ------------------------------------------------------------------------------
+# CallFlow imports.
+import callflow
 from callflow import CallFlow
 from callflow.operations import ConfigFileReader
 
-import callflow
-
 LOGGER = callflow.get_logger(__name__)
-
 
 # ------------------------------------------------------------------------------
 # Create a Flask server.
@@ -46,19 +46,18 @@ class CallFlowServer:
 
         self.debug = args.verbose or True
         self.production = args.production or False
-        configFile = args.config
         self.process = args.process
 
         # Read the config file using config file reader.
-        self.config = ConfigFileReader(configFile)
+        self.config = ConfigFileReader(args.config)
 
         # Call the version of callflow corresponding to number of datasets.
         if len(self.config.datasets) == 1:
-            self.callflow = CallFlow(
+            self.callflow = callflow.CallFlow(
                 config=self.config, process=self.process, ensemble=False
             )
         else:
-            self.callflow = CallFlow(
+            self.callflow = callflow.CallFlow(
                 config=self.config, process=self.process, ensemble=True
             )
 
@@ -66,6 +65,8 @@ class CallFlowServer:
         if not self.process:
             self._create_server()
 
+    # ------------------------------------------------------------------------------
+    # Private methods.
     @staticmethod
     def _create_parser():
         """
@@ -103,6 +104,14 @@ class CallFlowServer:
                 raise Exception()
 
     def _create_server(self):
+        """
+        Create server's request handler and starts the server.
+        Current version abstracts the requests into 3 categores: 
+        General: common requests for both ensemble and single.
+        Single: requests for single dataset processing.
+        Ensemble: requests for ensemble dataset processing. 
+        """
+
         # Socket request handlers
         self._request_handler_general()
         if len(self.config.datasets) == 1:
@@ -122,14 +131,12 @@ class CallFlowServer:
         General socket requests.
         """
 
-        # TODO: Find a better way to debug.
         @sockets.on("reset", namespace="/")
         def reset(data):
             """
             # TODO: This might have to be deleted.
             """
-            if self.debug:
-                LOGGER.debug("[Socket request] reset: {}".format(data))
+            LOGGER.debug("[Socket request] reset: {}".format(data))
             dataset = data["dataset"]
             filterBy = data["filterBy"]
             filterPerc = data["filterPerc"]
@@ -145,7 +152,6 @@ class CallFlowServer:
         @sockets.on("init", namespace="/")
         def init(data):
             """
-            # TODO: Change request tag to "config".
             Essential data house for single callflow.
             :return: Config file (JSON Format).
             """
@@ -163,8 +169,7 @@ class CallFlowServer:
             Reveal the callpaths of selected callsites.
             :return: networkx graph (JSON)
             """
-            if self.debug:
-                LOGGER.debug(f"[Socket request] reveal_callsite: {data}")
+            LOGGER.debug(f"[Socket request] reveal_callsite: {data}")
             nxg = self.callflow.request(
                 {
                     "name": "supergraph",
@@ -183,8 +188,7 @@ class CallFlowServer:
             Reveal the entry callsite of selected module.
             :return: networkx graph (JSON)
             """
-            if self.debug:
-                LOGGER.debug("Split by entry: {}".format(data))
+            LOGGER.debug("Split by entry: {}".format(data))
             nxg = self.callflow.request(
                 {
                     "name": "supergraph",
@@ -203,8 +207,7 @@ class CallFlowServer:
             Reveal the callees of selected module.
             :return: networkx graph (JSON)
             """
-            if self.debug:
-                LOGGER.debug("Split by callees: {}".format(data))
+            LOGGER.debug("Split by callees: {}".format(data))
             nxg = self.callflow.request(
                 {
                     "name": "supergraph",
@@ -217,32 +220,14 @@ class CallFlowServer:
             json_result = json.dumps(result)
             emit("ensemble_supergraph", json_result, json=True)
 
-        # @sockets.on("mpi_range_data", namespace="/")
-        # def mpi_range_data(data):
-        #     if self.debug:
-        #         LOGGER.debug("MPI range data: {}".format(data))
-        #     nx_graph = self.callflow.request(
-        #         {
-        #             "name": "mpi_range_data",
-        #             "datasets": data["datasets"],
-        #             "range_from": data["range_from"],
-        #             "range_to": data["range_to"],
-        #         }
-        #     )
-
     def _request_handler_single(self):
         @sockets.on("single_callsite_data", namespace="/")
         def single_callsite_data(data):
             """
-            TODO: Not sure if we can merge this with init.
-            TODO: Needs discussion and a better naming convention.
-
             Data house for single callflow.
             :return: Auxiliary data.
             """
-            if self.debug:
-                LOGGER.debug("[Socket request] single_callsite_data. {}".format(data))
-
+            LOGGER.debug("[Socket request] single_callsite_data. {}".format(data))
             result = self.callflow.request_single(
                 {
                     "name": "auxiliary",
@@ -260,9 +245,7 @@ class CallFlowServer:
             Single CCT.
             :return: CCT networkx graph (JSON format).
             """
-            if self.debug:
-                LOGGER.debug("[Socket request] Single CCT: {}".format(data))
-
+            LOGGER.debug("[Socket request] Single CCT: {}".format(data))
             nxg = self.callflow.request_single(
                 {
                     "name": "cct",
@@ -281,9 +264,7 @@ class CallFlowServer:
             Single SuperGraph.
             :return: both SuperGraph networkx graphs (JSON format).
             """
-            if self.debug:
-                LOGGER.debug("[Socket request] single_supergraph: {}".format(data))
-
+            LOGGER.debug("[Socket request] single_supergraph: {}".format(data))
             dataset = data["dataset"]
             groupBy = data["groupBy"].lower()
             nxg = self.callflow.request_single(
@@ -297,14 +278,10 @@ class CallFlowServer:
         @sockets.on("ensemble_callsite_data", namespace="/")
         def ensemble_callsite_data(data):
             """
-            TODO: Not sure if we can merge this with init.
-            TODO: Needs discussion and a better naming convention.
-
-            Essential data house for ensemble callflow.
+            Data house for ensemble callflow.
             :return: Auxiliary data.
             """
-            if self.debug:
-                LOGGER.debug("[Socket request] ensemble_callsite_data: {}".format(data))
+            LOGGER.debug("[Socket request] ensemble_callsite_data: {}".format(data))
             result = self.callflow.request_ensemble(
                 {
                     "name": "auxiliary",
@@ -333,8 +310,8 @@ class CallFlowServer:
                 }
             )
             result = json_graph.node_link_data(nxg)
-            json_result = json.dumps(result)
-            emit("ensemble_cct", json_result, json=True)
+            # json_result = json.dumps(result)
+            emit("ensemble_cct", result, json=True)
 
         @sockets.on("ensemble_supergraph", namespace="/")
         def ensemble_supergraph(data):
@@ -343,7 +320,6 @@ class CallFlowServer:
             :return: both SuperGraph networkx graphs (JSON format).
             """
             LOGGER.debug("[Socket request] ensemble_supergraph: {}".format(data))
-
             datasets = data["datasets"]
             groupBy = data["groupBy"].lower()
             nxg = self.callflow.request_ensemble(
@@ -359,9 +335,7 @@ class CallFlowServer:
             Similarity Matrix for all callgraphs in ensemble.
             :return: Pair-wise similarity matrix
             """
-            if self.debug:
-                LOGGER.debug("ensemble_similarity: {data}")
-
+            LOGGER.debug("ensemble_similarity: {data}")
             result = self.callflow.request(
                 {
                     "name": "similarity",
@@ -378,8 +352,7 @@ class CallFlowServer:
             Module hierarchy of the supergraph.
             :return: CCT networkx graph (JSON format).
             """
-            if self.debug:
-                LOGGER.debug(f"module_hierarchy {data}")
+            LOGGER.debug(f"module_hierarchy {data}")
             nxg = self.callflow.request_ensemble(
                 {
                     "name": "hierarchy",
@@ -398,8 +371,7 @@ class CallFlowServer:
             Parameter projection of the datasets.
             :return: PCs. I guess.
             """
-            if self.debug:
-                LOGGER.debug(f"parameter_projection: {data}")
+            LOGGER.debug(f"parameter_projection: {data}")
             result = self.callflow.request_ensemble(
                 {
                     "name": "projection",
@@ -410,6 +382,7 @@ class CallFlowServer:
             )
             emit("parameter_projection", result, json=True)
 
+        # Not used now. But lets keep it. Will be useful.
         @sockets.on("parameter_information", namespace="/")
         def parameter_information(data):
             """
@@ -417,9 +390,7 @@ class CallFlowServer:
             Parameter information
             :return: { "parameter1": [Array], "parameter2": [Array] ...  }.
             """
-            if self.debug:
-                LOGGER.debug(f"[Socket request] parameter_information: {data}")
-
+            LOGGER.debug(f"[Socket request] parameter_information: {data}")
             result = self.callflow.request(
                 {"name": "run-information", "datasets": data["datasets"]}
             )
@@ -428,12 +399,10 @@ class CallFlowServer:
         @sockets.on("compare", namespace="/")
         def compare(data):
             """
-            TODO: Verify the return type.
             Compare two super-graphs.
             :return: Gradients in some JSON format.
             """
-            if self.debug:
-                LOGGER.debug("[Socket request] compare_supergraph {data}")
+            LOGGER.debug("[Socket request] compare_supergraph {data}")
             result = self.callflow.request(
                 {
                     "name": "compare",
@@ -444,18 +413,8 @@ class CallFlowServer:
             )
             emit("compare", result, json=True)
 
-    def create_server(self):
-        app.debug = True
-        app.__dir__ = os.path.join(os.path.dirname(os.getcwd()), "")
-        # CallFlowServer routes
-        @app.route("/")
-        def root():
-            LOGGER.debug(f"CallFlowServer directory: {app.__dir__}")
-            return send_from_directory(app.__dir__, "index.html")
-
 
 if __name__ == "__main__":
-
     # if verbose, level = 1
     # else, level = 2
     callflow.init_logger(level=1)

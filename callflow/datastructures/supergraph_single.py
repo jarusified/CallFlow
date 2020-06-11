@@ -1,59 +1,54 @@
-##############################################################################
-# Copyright (c) 2018-2019, Lawrence Livermore National Security, LLC.
-# Produced at the Lawrence Livermore National Laboratory.
+# Copyright 2017-2020 Lawrence Livermore National Security, LLC and other
+# CallFlow Project Developers. See the top-level LICENSE file for details.
 #
-# This file is part of Callflow.
-# Created by Suraj Kesavan <kesavan1@llnl.gov>.
-# LLNL-CODE-741008. All rights reserved.
-#
-# For details, see: https://github.com/LLNL/Callflow
-# Please also read the LICENSE file for the MIT License notice.
-##############################################################################
+# SPDX-License-Identifier: MIT
 
+# ------------------------------------------------------------------------------
+# Library imports
 import sys
 import networkx as nx
 import math
 import json
 from ast import literal_eval as make_tuple
+
+# ------------------------------------------------------------------------------
+# CallFlow imports
+import callflow
 from callflow.timer import Timer
 from callflow import SuperGraph
-import callflow
 
 LOGGER = callflow.get_logger(__name__)
 
-
+# ------------------------------------------------------------------------------
+# Single Super Graph class.
 class SingleSuperGraph(SuperGraph):
     def __init__(
         self,
-        states,
+        supergraphs,
+        tag,
         dataset,
         path,
         group_by_attr="module",
         construct_graph=True,
         add_data=True,
     ):
-        super(SingleSuperGraph, self).__init__()
-        self.log = Log("supergraph")
-        self.state = states[dataset]
-        self.dataset = dataset
-        self.timer = Timer()
+        super(SingleSuperGraph, self).__init__(props=props, tag=tag, mode="render")
 
-        self.graph = state.new_gf.graph
-        self.df = state.new_gf.df
-        self.g = state.new_gf.nxg
+        self.ensemble_supergraph = self.supergraphs[tag]
+        self.group_df = self.ensemble_supergraph.gf.df
 
+        self.path = path
         self.group_by = group_by_attr
 
+        # Columns to consider.
         self.columns = [
             "time (inc)",
-            "group_path",
+            "module",
             "name",
             "time",
-            "callers",
-            "callees",
-            "vis_name",
+            "type",
             "module",
-            "show_node",
+            "actual_time",
         ]
 
         with self.timer.phase("Construct Graph"):
@@ -66,30 +61,7 @@ class SingleSuperGraph(SuperGraph):
             else:
                 print("Using the existing graph from state {0}".format(self.state.name))
 
-        LOGGER.info("Modules: {0}".format(self.df["module"].unique()))
-        LOGGER.info("Top 10 Inclusive time: ")
-        top = 10
-        rank_df = self.df.groupby(["name", "nid"]).mean()
-        top_inclusive_df = rank_df.nlargest(top, "time (inc)", keep="first")
-        for name, row in top_inclusive_df.iterrows():
-            LOGGER.info("{0} [{1}]".format(name, row["time (inc)"]))
-
-        LOGGER.info("Top 10 Enclusive time: ")
-        top_exclusive_df = rank_df.nlargest(top, "time", keep="first")
-        for name, row in top_exclusive_df.iterrows():
-            LOGGER.info("{0} [{1}]".format(name, row["time"]))
-
-        for node in self.g.nodes(data=True):
-            LOGGER.info("Node: {0}".format(node))
-        for edge in self.g.edges():
-            LOGGER.info("Edge: {0}".format(edge))
-
-        LOGGER.info("Nodes in the tree: {0}".format(len(self.g.nodes)))
-        LOGGER.info("Edges in the tree: {0}".format(len(self.g.edges)))
-        LOGGER.info("Is it a tree? : {0}".format(nx.is_tree(self.g)))
-        LOGGER.info("Flow hierarchy: {0}".format(nx.flow_hierarchy(self.g)))
-
-        # Variables to control the data properties globally.
+        # Remove. 
         self.callbacks = []
         self.edge_direction = {}
 
@@ -102,26 +74,7 @@ class SingleSuperGraph(SuperGraph):
 
         LOGGER.debug(self.timer)
 
-    # Remove this or replace with the cycle path detection in ensemble.
-    # def no_cycle_path(self, path):
-    #     ret = []
-    #     moduleMapper = {}
-    #     for idx, elem in enumerate(path):
-    #         call_site = elem.split("=")[1]
-    #         module = self.df.loc[self.df.name == call_site]["module"].tolist()[0]
-    #         if module not in moduleMapper and elem in self.mapper:
-    #             self.mapper[elem] += 1
-    #             moduleMapper[module] = True
-    #             ret.append(elem)
-    #         elif elem not in self.mapper:
-    #             self.mapper[elem] = 0
-    #         else:
-    #             self.mapper[elem] += 1
-    #     return tuple(ret)
-
     def add_paths(self, path):
-        # path_df = self.df[path].fillna("()")
-        # paths = path_df.drop_duplicates().tolist()
         paths = self.df[path].unique()
         for idx, path_str in enumerate(paths):
             if not isinstance(path_str, float):

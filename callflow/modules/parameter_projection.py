@@ -25,7 +25,7 @@ from callflow.algorithms import KMedoids
 
 class ParameterProjection:
     def __init__(self, supergraph, similarities={}, targetDataset="", n_cluster=3):
-        
+
         self.df = supergraph.gf.df
         self.datasets = self.df["dataset"].unique().tolist()
         self.projection = "MDS"

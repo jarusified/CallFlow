@@ -98,7 +98,7 @@ class SingleAuxiliary:
             hist_inc_grid = self.histogram(time_inc_target_arr)
             hist_exc_grid = self.histogram(time_exc_target_arr)
 
-        if 'rank' not in group_df.keys():
+        if "rank" not in group_df.keys():
             group_df = group_df.reset_index(drop=False)
 
         result = {
@@ -171,10 +171,7 @@ class SingleAuxiliary:
 
     def run(self):
         ret = {}
-        path = (
-            self.props["save_path"]
-            + f"/{self.dataset}/auxiliary_data.json"
-        )
+        path = self.props["save_path"] + f"/{self.dataset}/auxiliary_data.json"
 
         # self.process = True
         if os.path.exists(path) and not self.process:

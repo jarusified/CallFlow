@@ -1,13 +1,28 @@
+# Copyright 2017-2020 Lawrence Livermore National Security, LLC and other
+# CallFlow Project Developers. See the top-level LICENSE file for details.
+#
+# SPDX-License-Identifier: MIT
+
+# ------------------------------------------------------------------------------
+# Library imports
 import os
 import json
 
+# ------------------------------------------------------------------------------
+# CallFlow imports
 import callflow
 from callflow import SuperGraph, EnsembleGraph, CCT, EnsembleSuperGraph
-from callflow.modules import EnsembleAuxiliary, ModuleHierarchy, ParameterProjection
+from callflow.modules import (
+    EnsembleAuxiliary,
+    ModuleHierarchy,
+    ParameterProjection,
+    FunctionList,
+)
 
 LOGGER = callflow.get_logger(__name__)
 
-
+# ------------------------------------------------------------------------------
+# CallFlow class
 class CallFlow:
     def __init__(self, config={}, process=False, ensemble=False):
         """
@@ -19,6 +34,7 @@ class CallFlow:
 
         # Convert config json to props. Never touch self.config ever.
         self.props = json.loads(json.dumps(config, default=lambda o: o.__dict__))
+        # Assert ensemble if it really contains more than 1 dataset.
         assert ensemble == (len(self.props["dataset_names"]) > 1)
 
         # Based on option, either process into .callflow or read from .callflow.
@@ -28,17 +44,59 @@ class CallFlow:
                 self._process_ensemble()
             else:
                 self._process_single()
-        else:
+        else:  # Rendering of call graphs.
             if ensemble:
                 self.supergraphs = self._read_ensemble()
-                assert ensemble == (len(self.supergraphs.keys()) > 1)
-                assert len(self.props["dataset_names"]) == len(self.supergraphs.keys()) - 1
+                # assertion here is 1 less than self.supergraph.keys, becasuse
+                # self.supergraphs contains the ensemble supergraph as well.
+                assert (
+                    len(self.props["dataset_names"]) == len(self.supergraphs.keys()) - 1
+                )
             else:
                 self.supergraphs = self._read_single()
+                assert len(self.props["dataset_names"]) == 1
 
+            # Adds basic information to props.
+            # Props is later return to client app on "init" request.
             self.add_basic_info_to_props()
 
     # --------------------------------------------------------------------------
+    # Processing methods.
+    def _create_dot_callflow_folder(self):
+        """
+        Create a .callflow directory and empty files.
+        """
+        LOGGER.debug(f"Saved .callflow directory is: {self.props['save_path']}")
+
+        if not os.path.exists(self.props["save_path"]):
+            os.makedirs(self.props["save_path"])
+            os.makedirs(os.path.join(self.props["save_path"], "ensemble"))
+
+        dataset_folders = []
+        for dataset in self.props["datasets"]:
+            dataset_folders.append(dataset["name"])
+        dataset_folders.append("ensemble")
+
+        for dataset in dataset_folders:
+            dataset_dir = os.path.join(self.props["save_path"], dataset)
+            LOGGER.debug(dataset_dir)
+            if not os.path.exists(dataset_dir):
+                # if self.debug:
+                LOGGER.debug(f"Creating .callflow directory for dataset : {dataset}")
+                os.makedirs(dataset_dir)
+
+            files = ["df.csv", "nxg.json", "hatchet_tree.txt", "auxiliary_data.json"]
+            for f in files:
+                fname = os.path.join(dataset_dir, f)
+                if not os.path.exists(fname):
+                    open(fname, "w").close()
+
+    def _remove_dot_callflow_folder(self):
+        """
+        TODO: We might want to delete the .callflow folder when we re-process/re-write. 
+        """
+        pass
+
     def _process_single(self):
         """
         Single dataset processing. 
@@ -69,7 +127,7 @@ class CallFlow:
         """
         Ensemble processing of datasets. 
         """
-        # Before we process the ensemble, we perform initial processing on all datasets.
+        # Before we process the ensemble, we perform single processing on all datasets.
         single_supergraphs = {}
         for idx, dataset_name in enumerate(self.props["dataset_names"]):
             # Create an instance of dataset.
@@ -86,16 +144,15 @@ class CallFlow:
             # Write the entire graphframe into .callflow.
             single_supergraphs[dataset_name].write_gf("entire")
 
+            # Single auxiliary processing.
             single_supergraphs[dataset_name].single_auxiliary(
                 dataset=dataset_name, binCount=20, process=True,
             )
 
-        # Create a dataset for ensemble case.
+        # Create a supergraph class for ensemble case.
         ensemble_supergraph = EnsembleGraph(
             self.props, "ensemble", mode="process", supergraphs=single_supergraphs
         )
-
-        print(ensemble_supergraph.gf)
 
         # Write the graphframe to file.
         ensemble_supergraph.write_gf("entire")
@@ -112,7 +169,7 @@ class CallFlow:
         # Write the grouped graphframe.
         ensemble_supergraph.write_gf("group")
 
-        # Calculate auxiliary information (used by callflow app.)
+        # Ensemble auxiliary processing.
         ensemble_supergraph.ensemble_auxiliary(
             # MPIBinCount=self.currentMPIBinCount,
             # RunBinCount=self.currentRunBinCount,
@@ -123,7 +180,6 @@ class CallFlow:
             write=True,
         )
 
-    # --------------------------------------------------------------------------
     def _read_single(self):
         """
         Read the single .callflow files required for client.
@@ -159,6 +215,9 @@ class CallFlow:
         return supergraphs
 
     # --------------------------------------------------------------------------
+    # Reading and rendering methods.
+    # All the functions below are Public methods that are accessed by the server.
+
     def add_basic_info_to_props(self):
         """
         Adds basic information (like max, min inclusive and exclusive runtime) to self.props.
@@ -197,43 +256,6 @@ class CallFlow:
         self.props["minExcTime"]["ensemble"] = minExcTime
         # self.props["numOfRanks"]["ensemble"] = maxNumOfRanks
 
-    # --------------------------------------------------------------------------
-    def _create_dot_callflow_folder(self):
-        """
-        Create a .callflow directory and empty files.
-        """
-        LOGGER.debug(f"Saved .callflow directory is: {self.props['save_path']}")
-
-        if not os.path.exists(self.props["save_path"]):
-            os.makedirs(self.props["save_path"])
-            os.makedirs(os.path.join(self.props["save_path"], "ensemble"))
-
-        dataset_folders = []
-        for dataset in self.props["datasets"]:
-            dataset_folders.append(dataset["name"])
-        dataset_folders.append("ensemble")
-
-        for dataset in dataset_folders:
-            dataset_dir = os.path.join(self.props["save_path"], dataset)
-            LOGGER.debug(dataset_dir)
-            if not os.path.exists(dataset_dir):
-                # if self.debug:
-                LOGGER.debug(f"Creating .callflow directory for dataset : {dataset}")
-                os.makedirs(dataset_dir)
-
-            files = ["df.csv", "nxg.json", "hatchet_tree.txt", "auxiliary_data.json"]
-            for f in files:
-                fname = os.path.join(dataset_dir, f)
-                if not os.path.exists(fname):
-                    open(fname, "w").close()
-
-    def _remove_dot_callflow_folder(self):
-        """
-        TODO: We might want to delete the .callflow folder when we re-process/re-write. 
-        """
-        pass
-
-    # --------------------------------------------------------------------------
     def request_single(self, operation):
         """
         TODO: Write individual functiosn to do this.
@@ -255,6 +277,7 @@ class CallFlow:
         LOGGER.info("The selected Dataset is {0}".format(dataset))
 
         # Compare against the different operations
+        # TODO: Probably remove.
         if operation_tag == "reset":
             datasets = [dataset]
             self.reProcess = True
@@ -299,9 +322,13 @@ class CallFlow:
             return self.props
 
         elif operation_tag == "ensemble_cct":
-            nx = CCT(self.datasets, "ensemble_entire", operation["functionsInCCT"])
-            LOGGER.debug(nx.g.nodes())
-            return nx.g
+            result = CCT(
+                supergraphs=self.supergraphs,
+                tag="ensemble",
+                props=self.props,
+                callsite_count=operation["functionsInCCT"],
+            )
+            return result.gf.nxg
 
         elif operation_tag == "supergraph":
             if "reveal_callsites" in operation:
@@ -333,7 +360,9 @@ class CallFlow:
             )
             return ensemble_super_graph.agg_nxg
 
+        # Not used.
         elif operation_tag == "scatterplot":
+            assert False
             if operation["plot"] == "bland-altman":
                 state1 = self.states[operation["dataset"]]
                 state2 = self.states[operation["dataset2"]]
@@ -346,7 +375,9 @@ class CallFlow:
                 ).results
             return ret
 
+        # Not used.
         elif operation_tag == "similarity":
+            assert False
             if operation["module"] == "all":
                 dirname = self.config.callflow_dir
                 name = self.config.runName
@@ -383,25 +414,19 @@ class CallFlow:
             ).result
             return result.to_json(orient="columns")
 
+        # Not used.
         elif operation_tag == "run-information":
+            assert False
             ret = []
             for idx, state in enumerate(self.states):
                 self.states[state].projection_data["dataset"] = state
                 ret.append(self.states[state].projection_data)
             return ret
 
-        elif operation_tag == "mini-histogram":
-            minihistogram = MiniHistogram(
-                self.states["ensemble"], target_datasets=operation["target-datasets"]
-            )
-            return minihistogram.result
-
-        elif operation_tag == "histogram":
-            histogram = RankHistogram(self.states["ensemble"], operation["module"])
-            return histogram.result
-
+        # TODO: need to handle re-processing case.
+        # The commented code below was used to enable re-processing.
         elif operation_tag == "auxiliary":
-            print(f"Reprocessing: {operation['re-process']}")
+            # print(f"Reprocessing: {operation['re-process']}")
             # aux = EnsembleAuxiliary(
             #     self.states,
             #     MPIBinCount=operation["MPIBinCount"],
@@ -414,12 +439,13 @@ class CallFlow:
             # if operation["re-process"] == 1:
             #     result = aux.run()
             # else:
-            self.currentMPIBinCount = operation["MPIBinCount"]
-            self.currentRunBinCount = operation["RunBinCount"]
+
+            # Need these two variables to belong to some class. Not sure where.
+            # Will take care when pre-processing is done.
+            # self.currentMPIBinCount = operation["MPIBinCount"]
+            # self.currentRunBinCount = operation["RunBinCount"]
 
             return self.supergraphs["ensemble"].auxiliary_data
-
-            return result
 
         elif operation_tag == "compare":
             compareDataset = operation["compareDataset"]
@@ -430,7 +456,7 @@ class CallFlow:
                 selectedMetric = "time"
 
             compare = DiffView(
-                self.states["ensemble_entire"],
+                self.supergraphs["ensemble"],
                 compareDataset,
                 targetDataset,
                 selectedMetric,

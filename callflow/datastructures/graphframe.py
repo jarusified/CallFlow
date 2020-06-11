@@ -1,14 +1,28 @@
+# Copyright 2017-2020 Lawrence Livermore National Security, LLC and other
+# CallFlow Project Developers. See the top-level LICENSE file for details.
+#
+# SPDX-License-Identifier: MIT
+
+# ------------------------------------------------------------------------------
+# Library imports
 import os
 import pandas as pd
 import hatchet as ht
 import networkx as nx
+
+# ------------------------------------------------------------------------------
+# CallFlow imports
 import callflow
 
 LOGGER = callflow.get_logger(__name__)
 
-
+# ------------------------------------------------------------------------------
+# GraphFrame Class
 class GraphFrame(ht.GraphFrame):
     def __init__(self, graph=None, dataframe=None, exc_metrics=None, inc_metrics=None):
+        """
+
+        """
 
         # TODO: will we ever want to create a graphframe without data?
         if graph is not None and dataframe is not None:
@@ -62,22 +76,21 @@ class GraphFrame(ht.GraphFrame):
 
         return GraphFrame.from_hatchet(gf)
 
-    # TODO: Implement this method.
     @staticmethod
     def from_data(data):
         """
         Create GraphFrame from 3 sets of information : df, graph, nxg. 
         """
-        # Hatchet requires node and rank to be indexes. 
+        # Hatchet requires node and rank to be indexes.
         data["df"] = data["df"].set_index(["node", "rank"])
 
-        # Create a graphframe using Hatchet. 
+        # Create a graphframe using Hatchet.
         gf = GraphFrame(dataframe=data["df"], graph=data["graph"])
 
         # Store the nxg.
         gf.nxg = data["nxg"]
 
-        # remove the set indexes to maintain consistency. 
+        # remove the set indexes to maintain consistency.
         gf.df = gf.df.reset_index(drop=False)
         return gf
 

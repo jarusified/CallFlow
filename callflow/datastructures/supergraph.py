@@ -1,3 +1,10 @@
+# Copyright 2017-2020 Lawrence Livermore National Security, LLC and other
+# CallFlow Project Developers. See the top-level LICENSE file for details.
+#
+# SPDX-License-Identifier: MIT
+
+# ------------------------------------------------------------------------------
+# Library imports
 import os
 import json
 import copy
@@ -6,7 +13,8 @@ import networkx as nx
 from networkx.readwrite import json_graph
 from ast import literal_eval as make_list
 
-
+# ------------------------------------------------------------------------------
+# CallFlow imports
 import callflow
 from callflow.timer import Timer
 from callflow.operations import Process, Group, Filter
@@ -14,7 +22,8 @@ from callflow.modules import EnsembleAuxiliary, SingleAuxiliary
 
 LOGGER = callflow.get_logger(__name__)
 
-
+# ------------------------------------------------------------------------------
+# SuperGraph Class
 class SuperGraph(object):
     def __init__(self, props={}, tag="", mode="process"):
         self.timer = Timer()
@@ -30,7 +39,8 @@ class SuperGraph(object):
 
         # Mode is either process or render.
         self.mode = mode
-        
+
+        # Variables used by `create_target_maps`.
         self.target_df = {}
         self.target_modules = {}
         self.target_module_group_df = {}
@@ -54,7 +64,7 @@ class SuperGraph(object):
                 self.create_ensemble_maps()
                 for dataset in self.props["dataset_names"]:
                     self.create_target_maps(dataset)
-                
+
         self.projection_data = {}
 
     def _getter(self):
@@ -85,8 +95,6 @@ class SuperGraph(object):
 
     def process_gf(self):
         """
-        # TODO: move the process functions to graphframe. 
-        # I am not doing this now. Might be next commit. 
         Process graphframe to add properties depending on the format. 
         Current processing is supported for hpctoolkit and caliper. 
         """
@@ -133,9 +141,7 @@ class SuperGraph(object):
         """
         Filter the graphframe. 
         """
-        print(self.gf)
         gf = self._getter()
-        print(gf)
         filter_res = Filter(
             gf=gf,
             mode=mode,
@@ -150,11 +156,32 @@ class SuperGraph(object):
             self.props, "ensemble", mode="process", supergraphs=single_supergraphs
         )
 
-    def ensemble_auxiliary(self, datasets, MPIBinCount=20, RunBinCount=20, process=True, write=True):
-        EnsembleAuxiliary(self.gf, datasets=datasets, props=self.props, MPIBinCount=MPIBinCount, RunBinCount=RunBinCount, process=process, write=write)
+    def ensemble_auxiliary(
+        self, datasets, MPIBinCount=20, RunBinCount=20, process=True, write=True
+    ):
+        gf = self._getter()
+        EnsembleAuxiliary(
+            gf,
+            datasets=datasets,
+            props=self.props,
+            MPIBinCount=MPIBinCount,
+            RunBinCount=RunBinCount,
+            process=process,
+            write=write,
+        )
 
     def single_auxiliary(self, dataset="", binCount=20, process=True):
-        SingleAuxiliary(self.gf, dataset=dataset, props=self.props, MPIBinCount=binCount, process=process)
+        gf = self._getter()
+        SingleAuxiliary(
+            gf,
+            dataset=dataset,
+            props=self.props,
+            MPIBinCount=binCount,
+            process=process,
+        )
+
+    # ------------------------------------------------------------------------------
+    # Utilities.
 
     def get_top_n_callsites_by_attr(self, count, sort_attr):
         """
@@ -252,97 +279,19 @@ class SuperGraph(object):
         """
         # Read the auxiliary data from all_data.json. 
         """
-        all_data_filepath = os.path.join(self.props["save_path"], self.tag, "auxiliary_data.json")
+        all_data_filepath = os.path.join(
+            self.props["save_path"], self.tag, "auxiliary_data.json"
+        )
         LOGGER.info(f"[Read] {all_data_filepath}")
         with open(all_data_filepath, "r") as filter_graphFile:
             data = json.load(filter_graphFile)
         return data
 
-    @staticmethod
-    def _create_source_targets(self, path):
-        module = ""
-        edges = []
-
-        for idx, callsite in enumerate(path):
-            if idx == len(path) - 1:
-                break
-
-            source = sanitizeName(path[idx])
-            target = sanitizeName(path[idx + 1])
-
-            edges.append({"source": source, "target": target})
-        return edges
-
-    @staticmethod
-    def _check_cycles(self, hierarchy, G):
-        try:
-            cycles = list(nx.find_cycle(self.hierarchy, orientation="ignore"))
-        except:
-            cycles = []
-
-        return cycles
-
-    @staticmethod
-    def _remove_cycles(self, hierarchy, G, cycles):
-        for cycle in cycles:
-            source = cycle[0]
-            target = cycle[1]
-            print("Removing edge:", source, target)
-            if source == target:
-                print("here")
-                G.remove_edge(source, target)
-                G.remove_node(source)
-                G.remove_node
-
-            if cycle[2] == "reverse":
-                print("Removing edge:", source, target)
-                G.remove_edge(source, target)
-        return G
-
-    @staticmethod
-    def _add_hierarchy_paths(self, hierarchy, df, path_name, filterTopCallsites=False):
-        module_df = self.df.loc[self.df["module"] == self.module]
-        if filterTopCallsites:
-            group_df = module_df.groupby(["name"]).mean()
-            f_group_df = group_df.loc[group_df[self.config.filter_by] > 500000]
-            callsites = f_group_df.index.values.tolist()
-            df = df[df["name"].isin(callsites)]
-
-        paths = df[path_name].unique()
-        for idx, path in enumerate(paths):
-            if isinstance(path, float):
-                return []
-            path = make_tuple(path)
-            source_targets = self.create_source_targets(path)
-            for edge in source_targets:
-                source = edge["source"]
-                target = edge["target"]
-                if not hierarchy.has_edge(source, target):
-                    hierarchy.add_edge(source, target)
-
-    def module_hierarchy(self, module=None):
-        hierarchy = nx.DiGraph()
-        node_paths_df = self.df.loc[self.df["module"] == self.module]
-
-        if "component_path" not in self.df.columns:
-            utils.debug("Error: Component path not defined in the df")
-
-        with self.timer.phase("Add paths"):
-            self._add_hierarchy_paths(hierarchy, node_paths_df, "component_path")
-
-        cycles = self._check_cycles(hierarchy)
-        while len(cycles) != 0:
-            self.hierarchy = self._remove_cycles(hierarchy, cycles)
-            cycles = self._check_cycles(hierarchy)
-            print(f"cycles: {cycles}")
-
-        return hierarchy
-
+    # ------------------------------------------------------------------------------
+    # NetworkX graph utility functions.
     def create_target_maps(self, dataset):
         # Reduce the entire_df to respective target dfs.
-        self.target_df[dataset] = self.gf.df.loc[
-            self.gf.df["dataset"] == dataset
-        ]
+        self.target_df[dataset] = self.gf.df.loc[self.gf.df["dataset"] == dataset]
 
         # Unique modules in the target run
         self.target_modules[dataset] = self.target_df[dataset]["module"].unique()
@@ -431,16 +380,120 @@ class SuperGraph(object):
 
         return ret
 
+    def print_information(self):
+        LOGGER.info("Modules: {0}".format(self.supergraph.gf.df["module"].unique()))
+        LOGGER.info("Top 10 Inclusive time: ")
+        top = 10
+        rank_df = self.supergraph.gf.df.groupby(["name", "nid"]).mean()
+        top_inclusive_df = rank_df.nlargest(top, "time (inc)", keep="first")
+        for name, row in top_inclusive_df.iterrows():
+            LOGGER.info("{0} [{1}]".format(name, row["time (inc)"]))
+
+        LOGGER.info("Top 10 Enclusive time: ")
+        top_exclusive_df = rank_df.nlargest(top, "time", keep="first")
+        for name, row in top_exclusive_df.iterrows():
+            LOGGER.info("{0} [{1}]".format(name, row["time"]))
+
+        for node in self.supergraph.gf.nxg.nodes(data=True):
+            LOGGER.info("Node: {0}".format(node))
+        for edge in self.supergraph.gf.nxg.edges():
+            LOGGER.info("Edge: {0}".format(edge))
+
+        LOGGER.info("Nodes in the tree: {0}".format(len(self.supergraph.gf.nxg.nodes)))
+        LOGGER.info("Edges in the tree: {0}".format(len(self.supergraph.gf.nxg.edges)))
+        LOGGER.info("Is it a tree? : {0}".format(nx.is_tree(self.supergraph.gf.nxg)))
+        LOGGER.info("Flow hierarchy: {0}".format(nx.flow_hierarchy(self.supergraph.gf.nxg)))
+
+
+    # ------------------------------------------------------------------------------
+    # Module hierarchy.
+    # TODO: we might have to delete the module hierarchy file in modules later.
+    # TODO: This might fail.
+
+    @staticmethod
+    def _create_source_targets(path):
+        module = ""
+        edges = []
+
+        for idx, callsite in enumerate(path):
+            if idx == len(path) - 1:
+                break
+
+            source = sanitizeName(path[idx])
+            target = sanitizeName(path[idx + 1])
+
+            edges.append({"source": source, "target": target})
+        return edges
+
+    @staticmethod
+    def _check_cycles(hierarchy, G):
+        try:
+            cycles = list(nx.find_cycle(self.hierarchy, orientation="ignore"))
+        except:
+            cycles = []
+
+        return cycles
+
+    @staticmethod
+    def _remove_cycles(hierarchy, G, cycles):
+        for cycle in cycles:
+            source = cycle[0]
+            target = cycle[1]
+            print("Removing edge:", source, target)
+            if source == target:
+                print("here")
+                G.remove_edge(source, target)
+                G.remove_node(source)
+                G.remove_node
+
+            if cycle[2] == "reverse":
+                print("Removing edge:", source, target)
+                G.remove_edge(source, target)
+        return G
+
+    @staticmethod
+    def _add_hierarchy_paths(self, hierarchy, df, path_name, filterTopCallsites=False):
+        module_df = self.df.loc[self.df["module"] == self.module]
+        if filterTopCallsites:
+            group_df = module_df.groupby(["name"]).mean()
+            f_group_df = group_df.loc[group_df[self.config.filter_by] > 500000]
+            callsites = f_group_df.index.values.tolist()
+            df = df[df["name"].isin(callsites)]
+
+        paths = df[path_name].unique()
+        for idx, path in enumerate(paths):
+            if isinstance(path, float):
+                return []
+            path = make_tuple(path)
+            source_targets = self.create_source_targets(path)
+            for edge in source_targets:
+                source = edge["source"]
+                target = edge["target"]
+                if not hierarchy.has_edge(source, target):
+                    hierarchy.add_edge(source, target)
+
+    def module_hierarchy(self, module=None):
+        hierarchy = nx.DiGraph()
+        node_paths_df = self.df.loc[self.df["module"] == self.module]
+
+        if "component_path" not in self.df.columns:
+            utils.debug("Error: Component path not defined in the df")
+
+        with self.timer.phase("Add paths"):
+            self._add_hierarchy_paths(hierarchy, node_paths_df, "component_path")
+
+        cycles = self._check_cycles(hierarchy)
+        while len(cycles) != 0:
+            self.hierarchy = self._remove_cycles(hierarchy, cycles)
+            cycles = self._check_cycles(hierarchy)
+            print(f"cycles: {cycles}")
+
+        return hierarchy
+
+    # ------------------------------------------------------------------------------
+    # Add paths according to what input is provided.
+    # Should be implemented by the child classes.
     def add_paths(self, path):
-        pass
-
-    def add_reveal_paths():
-        pass
-
-    def add_entry_callsite():
-        pass
-
-    def add_exit_callsite():
         pass
 
     def add_node_attributes(self):
@@ -448,3 +501,227 @@ class SuperGraph(object):
 
     def add_edge_attribtues(self):
         pass
+
+    # ------------------------------------------------------------------------------
+    # Reveal a callsite's path
+    # TODO: not tested. Could break.
+    def create_source_targets(self, component_path):
+        module = ""
+        edges = []
+        for idx, callsite in enumerate(component_path):
+            if idx == 0:
+                module = component_path[0]
+                edges.append(
+                    {
+                        "module": module,
+                        "source": module,
+                        "target": module + "=" + component_path[idx + 1],
+                    }
+                )
+                pass
+            elif idx == len(component_path) - 1:
+                pass
+            else:
+                edges.append(
+                    {
+                        "module": module,
+                        "source": module + "=" + component_path[idx],
+                        "target": module + "=" + component_path[idx + 1],
+                    }
+                )
+
+        return edges
+
+    def callsite_paths(self, callsites):
+        paths = []
+        for callsite in callsites:
+            df = self.name_group_df.get_group(callsite)
+            paths.append(
+                {
+                    "group_path": make_list(df["group_path"].unique()[0]),
+                    "path": make_list(df["path"].unique()[0]),
+                    "component_path": make_list(df["component_path"].unique()[0]),
+                }
+            )
+        return paths
+
+    def add_reveal_paths(self, reveal_callsites):
+        paths = self.callsite_paths(reveal_callsites)
+
+        for path in paths:
+            component_edges = self.create_source_targets(path["component_path"])
+            for idx, edge in enumerate(component_edges):
+                module = edge["module"]
+
+                # format module +  '=' + callsite
+                source = edge["source"]
+                target = edge["target"]
+
+                if not self.supergraph.gf.nxg.has_edge(source, target):
+                    if idx == 0:
+                        source_callsite = source
+                        source_df = self.module_group_df.get_group((module))
+                        source_node_type = "super-node"
+                    else:
+                        source_callsite = source.split("=")[1]
+                        source_df = self.module_name_group_df.get_group(
+                            (module, source_callsite)
+                        )
+                        source_node_type = "component-node"
+
+                    target_callsite = target.split("=")[1]
+                    target_df = self.module_name_group_df.get_group(
+                        (module, target_callsite)
+                    )
+                    target_node_type = "component-node"
+
+                    source_weight = source_df["time (inc)"].max()
+                    target_weight = target_df["time (inc)"].max()
+
+                    edge_type = "normal"
+
+                    print(f"Adding edge: {source_callsite}, {target_callsite}")
+                    self.supergraph.gf.nxg.add_node(
+                        source, attr_dict={"type": source_node_type}
+                    )
+                    self.supergraph.gf.nxg.add_node(
+                        target, attr_dict={"type": target_node_type}
+                    )
+                    self.supergraph.gf.nxg.add_edge(
+                        source,
+                        target,
+                        attr_dict=[
+                            {
+                                "source_callsite": source_callsite,
+                                "target_callsite": target_callsite,
+                                "edge_type": edge_type,
+                                "weight": target_weight,
+                                "edge_type": "reveal_edge",
+                            }
+                        ],
+                    )
+
+    def add_exit_callsite():
+        # TODO: This code is missing for some reason.
+        pass
+
+    # ------------------------------------------------------------------------------
+    # Create a module hierarchy for a chosen module.
+    # Not fully tested. Might break.
+    def module_entry_functions_map(self, graph):
+        entry_functions = {}
+        for edge in graph.edges(data=True):
+            attr_dict = edge[2]["attr_dict"]
+            edge_tuple = (edge[0], edge[1])
+            for edge_attr in attr_dict:
+                if edge_tuple[1] not in entry_functions:
+                    entry_functions[edge_tuple[1]] = []
+                entry_functions[edge_tuple[1]].append(edge_attr["target_callsite"])
+        return entry_functions
+
+    def create_source_targets_from_group_path(self, path):
+        module = ""
+        edges = []
+        for idx, callsite in enumerate(path):
+            if idx == len(path) - 1:
+                break
+            source = path[idx].split("=")
+            target = path[idx + 1].split("=")
+            edges.append(
+                {
+                    "source": source[0],
+                    "target": target[0],
+                    "source_callsite": source[1],
+                    "target_callsite": target[1],
+                }
+            )
+        return edges
+
+    def same_source_edges(self, component_edges, reveal_module):
+        ret = []
+        for idx, edge in enumerate(component_edges):
+            source = edge["source"]
+            target = edge["target"]
+
+            if source == reveal_module:
+                ret.append(edge)
+        return ret
+
+    def same_target_edges(self, component_edges, reveal_module):
+        ret = []
+        for idx, edge in enumerate(component_edges):
+            source = edge["source"]
+            target = edge["target"]
+
+            if target == reveal_module:
+                ret.append(edge)
+        return ret
+
+    def add_entry_callsite(self, reveal_module):
+        entry_functions_map = self.module_entry_functions_map(self.supergraph.gf.nxg)
+        reveal_callsites = entry_functions_map[reveal_module]
+        paths = self.callsitePathInformation(reveal_callsites)
+
+        for path in paths:
+            component_edges = self.create_source_targets_from_group_path(
+                path["group_path"]
+            )
+            source_edges_to_remove = self.same_source_edges(
+                component_edges, reveal_module
+            )
+            target_edges_to_remove = self.same_target_edges(
+                component_edges, reveal_module
+            )
+
+            if len(source_edges_to_remove) != 0:
+                for edge in source_edges_to_remove:
+                    if self.supergraph.gf.nxg.has_edge(edge["source"], edge["target"]):
+                        self.supergraph.gf.nxg.remove_edge(
+                            (edge["source"], edge["target"])
+                        )
+                    self.supergraph.gf.nxg.add_node(
+                        reveal_module + "=" + edge["source_callsite"],
+                        attr_dict={"type": "component-node"},
+                    )
+                    self.supergraph.gf.nxg.add_edge(
+                        (reveal_module + "=" + edge["source_callsite"], edge["target"]),
+                        attr_dict=[
+                            {
+                                "source_callsite": edge["source_callsite"],
+                                "target_callsite": edge["target_callsite"],
+                                "edge_type": "normal",
+                                "weight": self.module_name_group_df.get_group(
+                                    (reveal_module, edge["source_callsite"])
+                                )["time (inc)"].max(),
+                                "edge_type": "reveal_edge",
+                            }
+                        ],
+                    )
+
+            if len(target_edges_to_remove) != 0:
+                for edge in target_edges_to_remove:
+                    if self.supergraph.gf.nxg.has_edge(edge["source"], edge["target"]):
+                        self.supergraph.gf.nxg.remove_edge(
+                            edge["source"], edge["target"]
+                        )
+                    self.supergraph.gf.nxg.add_node(
+                        reveal_module + "=" + edge["target_callsite"],
+                        attr_dict={"type": "component-node"},
+                    )
+                    self.supergraph.gf.nxg.add_edge(
+                        edge["source"],
+                        reveal_module + "=" + edge["target_callsite"],
+                        attr_dict=[
+                            {
+                                "source_callsite": edge["source_callsite"],
+                                "target_callsite": edge["target_callsite"],
+                                "edge_type": "normal",
+                                "weight": self.module_name_group_df.get_group(
+                                    (edge["target"], edge["target_callsite"])
+                                )["time (inc)"].max(),
+                                "edge_type": "reveal_edge",
+                            }
+                        ],
+                    )
+
+        self.supergraph.gf.nxg.remove_node(reveal_module)
