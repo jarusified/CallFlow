@@ -76,11 +76,6 @@ class SuperGraph (object):
             #self.create_gf(data=data)
             #self.auxiliary_data = self.read_auxiliary_data()
 
-            # Hatchet requires node and rank to be indexes.
-            # remove the set indexes to maintain consistency.
-            self.gf.df = self.gf.df.set_index(['node', 'rank'])
-            self.gf.df = self.gf.df.reset_index(drop=False)
-
             with self.timer.phase(f"Creating the data maps."):
                 self.cct_df = self.gf.df[self.gf.df["name"].isin(self.gf.nxg.nodes())]
                 self.create_ensemble_maps()

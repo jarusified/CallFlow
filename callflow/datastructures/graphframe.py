@@ -53,7 +53,7 @@ class GraphFrame (ht.GraphFrame):
 
         # dump the filtered dataframe to csv if write_df is true.
         if write_df:
-            self.df.to_csv( os.path.join(path, GraphFrame._FILENAMES['df']) )
+            self.df.to_csv(os.path.join(path, GraphFrame._FILENAMES['df']))
 
         if write_graph:
             fname = os.path.join(os.path.join(path, GraphFrame._FILENAMES['ht']))
@@ -78,6 +78,11 @@ class GraphFrame (ht.GraphFrame):
         self.df = pd.read_csv(fname)
         if self.df.empty:
             raise ValueError(f"{fname} is empty.")
+
+        # Hatchet requires node and rank to be indexes.
+        # remove the set indexes to maintain consistency.
+        self.df = self.df.set_index(['node', 'rank'])
+        self.df = self.df.reset_index(drop=False)
 
 
         fname = os.path.join(path, GraphFrame._FILENAMES['nxg'])
@@ -158,11 +163,11 @@ class GraphFrame (ht.GraphFrame):
     # callflow.graph utilities.
 
     @staticmethod
-    def hatchet_graph_to_nxg(gf):
+    def hatchet_graph_to_nxg(ht_graph):
         """
         Constructs a networkX graph from hatchet graph.
         """
-        assert isinstance(gf, ht.graph.Graph)
+        assert isinstance(ht_graph, ht.graph.Graph)
 
         def _get_node_name(nd):
             nm = callflow.utils.sanitize_name(nd["name"])
@@ -173,7 +178,7 @@ class GraphFrame (ht.GraphFrame):
         from callflow.utils import node_dict_from_frame
 
         nxg = nx.DiGraph()
-        for root in gf.roots:
+        for root in ht_graph.roots:
             node_gen = root.traverse()
 
             root_dict = node_dict_from_frame(root.frame)
