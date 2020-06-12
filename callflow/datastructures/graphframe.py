@@ -251,9 +251,18 @@ class GraphFrame (ht.GraphFrame):
 
     # --------------------------------------------------------------------------
     # callflow.df utilities
-    def lookup(self, node):
-        return self.df.loc[ (self.df["name"] == node.callpath[-1]) &
-                            (self.df["nid"]  == node.nid) ]
+    def get_top_by_attr(self, count, sort_attr):
+        assert isinstance(count, int) and isinstance(sort_attr, str)
+        assert count > 0
+
+        df = self.df.groupby(['name']).mean()
+        df = df.sort_values(by=[sort_attr], ascending=False)
+        df = df.nlargest(count, sort_attr)
+        return df.index.values.tolist()
+
+    def filter_by_name(self, names):
+        assert isinstance(names, list)
+        self.df = self.df[self.df['name'].isin(names)]
 
     def lookup_with_node(self, node):
         return self.df.loc[self.df["name"] == node.callpath[-1]]
@@ -263,6 +272,10 @@ class GraphFrame (ht.GraphFrame):
 
     def lookup_with_vis_nodeName(self, name):
         return self.df.loc[self.df["vis_node_name"] == name]
+
+    def lookup(self, node):
+        return self.df.loc[ (self.df["name"] == node.callpath[-1]) &
+                            (self.df["nid"]  == node.nid) ]
 
     def update_df(self, col_name, mapping):
         self.df[col_name] = self.df["name"].apply(

@@ -11,7 +11,7 @@ import json
 # ------------------------------------------------------------------------------
 # CallFlow imports
 import callflow
-from callflow import SuperGraph, EnsembleGraph, CCT, EnsembleSuperGraph
+from callflow import SuperGraph, EnsembleGraph, Render_CCT, EnsembleSuperGraph
 from callflow.modules import (
     EnsembleAuxiliary,
     ModuleHierarchy,
@@ -299,7 +299,7 @@ class CallFlow:
             return minihistogram.result
 
         elif operation_tag == "cct":
-            graph = CCT(
+            graph = Render_CCT(
                 supergraphs=self.supergraphs,
                 tag=operation["dataset"],
                 props=self.props,
@@ -323,7 +323,7 @@ class CallFlow:
             return self.props
 
         elif operation_tag == "ensemble_cct":
-            result = CCT(
+            result = Render_CCT(
                 supergraphs=self.supergraphs,
                 tag="ensemble",
                 props=self.props,

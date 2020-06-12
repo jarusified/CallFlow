@@ -325,15 +325,15 @@ class SuperGraph (object):
 
     # --------------------------------------------------------------------------
     # Utilities.
+    # TODO: should this be in callflow.GraphFrame?
     def get_top_n_callsites_by_attr(self, count, sort_attr):
         """
         Returns an array of callsites (sorted by `sort_attr`)
         """
-        assert False # TODO: still using self.entire_df
-        xgroup_df = self.entire_df.groupby(["name"]).mean()
-        sort_xgroup_df = xgroup_df.sort_values(by=[sort_attr], ascending=False)
-        callsites_df = sort_xgroup_df.nlargest(count, sort_attr)
-        return callsites_df.index.values.tolist()
+        df = self.gf.df.groupby(["name"]).mean()
+        df = df.sort_values(by=[sort_attr], ascending=False)
+        df = df.nlargest(count, sort_attr)
+        return df.index.values.tolist()
 
     # --------------------------------------------------------------------------
     # NetworkX graph utility functions.
