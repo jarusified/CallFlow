@@ -10,7 +10,7 @@ import json
 import copy
 import pandas as pd
 import networkx as nx
-from networkx.readwrite import json_graph
+#from networkx.readwrite import json_graph
 from ast import literal_eval as make_list
 
 # ------------------------------------------------------------------------------
@@ -24,12 +24,21 @@ LOGGER = callflow.get_logger(__name__)
 
 # ------------------------------------------------------------------------------
 # SuperGraph Class
-class SuperGraph(object):
+class SuperGraph (object):
+
+    # --------------------------------------------------------------------------
+    _FILENAMES = {'params': 'env_params.txt',
+                 'aux':     'auxiliary_data.json'}
+
+    # --------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     def __init__(self, props={}, tag="", mode="process"):
+
         self.timer = Timer()
 
         # Props is the information contained in config object.
-        # We duplicate this to add more information to config and not modify it as a side effect.
+        # We duplicate this to add more information to config
+        # and not modify it as a side effect.
         self.props = props
         self.dirname = self.props["save_path"]
 
@@ -51,13 +60,26 @@ class SuperGraph(object):
         self.target_name_time_inc_map = {}
         self.target_name_time_exc_map = {}
 
+
         # Create a graphframe based on the mode.
         if mode == "process":
-            self.create_gf()
+            self.gf = callflow.GraphFrame.from_config(self.props, self.tag)
+
         elif mode == "render":
-            data = self.read_gf(read_parameter=self.props["read_parameter"])
-            self.create_gf(data=data)
-            self.auxiliary_data = self.read_auxiliary_data()
+
+            path = os.path.join(self.dirname, self.tag)
+
+            self.gf.read(path)
+            parameters = SuperGraph.read_parameter(path)   #TODO: where is this supposed to go?
+            self.auxiliary_data = SuperGraph.read_auxiliary_data(path)
+
+            #self.create_gf(data=data)
+            #self.auxiliary_data = self.read_auxiliary_data()
+
+            # Hatchet requires node and rank to be indexes.
+            # remove the set indexes to maintain consistency.
+            self.gf.df = self.gf.df.set_index(['node', 'rank'])
+            self.gf.df = self.gf.df.reset_index(drop=False)
 
             with self.timer.phase(f"Creating the data maps."):
                 self.cct_df = self.gf.df[self.gf.df["name"].isin(self.gf.nxg.nodes())]
@@ -67,13 +89,14 @@ class SuperGraph(object):
 
         self.projection_data = {}
 
-    def _getter(self):
+    # --------------------------------------------------------------------------
+    def _remove__getter(self):
         """
         Getter for graphframe. Returns the graphframe.
         """
         return self.gf
 
-    def _setter(self, gf):
+    def _remove__setter(self, gf):
         """
         Setter for graphframe. Hooks the graphframe.
         """
@@ -81,10 +104,11 @@ class SuperGraph(object):
 
         self.gf = gf
 
-    def create_gf(self, data=None):
+    # --------------------------------------------------------------------------
+    def _remove_create_gf(self, data=None):
         """
-        Creates a graphframe using config and networkX grapg from hatchet graph.
-        Each graphframe is tagged by a unique identifier. 
+        Creates a graphframe using config and networkX graph from hatchet graph.
+        Each graphframe is tagged by a unique identifier.
         e.g., here is the runName from config file or JSON.
         """
         if data:
@@ -93,106 +117,74 @@ class SuperGraph(object):
             gf = callflow.GraphFrame.from_config(self.props, self.tag)
             self.gf = copy.deepcopy(gf)
 
+    # --------------------------------------------------------------------------
     def process_gf(self):
         """
-        Process graphframe to add properties depending on the format. 
-        Current processing is supported for hpctoolkit and caliper. 
+        Process graphframe to add properties depending on the format.
+        Current processing is supported for hpctoolkit and caliper.
         """
-        gf = self._getter()
         if self.props["format"][self.tag] == "hpctoolkit":
-            process = (
-                Process.Builder(gf, self.tag)
-                .add_path()
-                .create_name_module_map()
-                .add_callers_and_callees()
-                .add_dataset_name()
-                .add_imbalance_perc()
-                .add_module_name_hpctoolkit()
-                .add_vis_node_name()
-                .build()
-            )
+
+            process = (Process.Builder(self.gf, self.tag)
+                              .add_path()
+                              .create_name_module_map()
+                              .add_callers_and_callees()
+                              .add_dataset_name()
+                              .add_imbalance_perc()
+                              .add_module_name_hpctoolkit()
+                              .add_vis_node_name()
+                              .build())
+
         elif self.props["format"][self.tag] == "caliper_json":
-            process = (
-                Process.Builder(gf, self.tag)
-                .add_time_columns()
-                .add_rank_column()
-                .add_callers_and_callees()
-                .add_dataset_name()
-                .add_imbalance_perc()
-                .add_module_name_caliper(self.props["callsite_module_map"])
-                .create_name_module_map()
-                .add_vis_node_name()
-                .add_path()
-                .build()
-            )
 
-        self._setter(process.gf)
+            process = (Process.Builder(self.gf, self.tag)
+                              .add_time_columns()
+                              .add_rank_column()
+                              .add_callers_and_callees()
+                              .add_dataset_name()
+                              .add_imbalance_perc()
+                              .add_module_name_caliper(self.props["callsite_module_map"])
+                              .create_name_module_map()
+                              .add_vis_node_name()
+                              .add_path()
+                              .build())
 
+        self.gf = process.gf
+
+    # --------------------------------------------------------------------------
     def group_gf(self, group_by="module"):
         """
-        Group the graphframe based on `group_by` parameter. 
+        Group the graphframe based on `group_by` parameter.
         """
-        gf = self._getter()
-        group = Group(gf, group_by)
-
-        self._setter(group.gf)
+        self.gf = Group(self.gf, group_by).gf
 
     def filter_gf(self, mode="single"):
         """
-        Filter the graphframe. 
+        Filter the graphframe.
         """
-        gf = self._getter()
-        filter_res = Filter(
-            gf=gf,
-            mode=mode,
-            filter_by=self.props["filter_by"],
-            filter_perc=self.props["filter_perc"],
-        )
-        self._setter(filter_res.gf)
+        self.gf = Filter(gf=self.gf, mode=mode,
+                            filter_by=self.props["filter_by"],
+                            filter_perc=self.props["filter_perc"]).gf
 
+    # --------------------------------------------------------------------------
+    #TODO: not sure what is going on here
     def ensemble_gf(self, supergraphs):
+        EnsembleGraph(self.props, "ensemble",
+                        mode="process", supergraphs=single_supergraphs)
 
-        EnsembleGraph(
-            self.props, "ensemble", mode="process", supergraphs=single_supergraphs
-        )
+    def ensemble_auxiliary(self, datasets, MPIBinCount=20,
+                                          RunBinCount=20, process=True, write=True):
+        EnsembleAuxiliary(self.gf, datasets=datasets, props=self.props,
+                                   MPIBinCount=MPIBinCount, RunBinCount=RunBinCount,
+                                   process=process, write=write)
 
-    def ensemble_auxiliary(
-        self, datasets, MPIBinCount=20, RunBinCount=20, process=True, write=True
-    ):
-        gf = self._getter()
-        EnsembleAuxiliary(
-            gf,
-            datasets=datasets,
-            props=self.props,
-            MPIBinCount=MPIBinCount,
-            RunBinCount=RunBinCount,
-            process=process,
-            write=write,
-        )
-
+    #TODO: not sure what is going on here
     def single_auxiliary(self, dataset="", binCount=20, process=True):
-        gf = self._getter()
-        SingleAuxiliary(
-            gf,
-            dataset=dataset,
-            props=self.props,
-            MPIBinCount=binCount,
-            process=process,
-        )
+        SingleAuxiliary(self.gf, dataset=dataset, props=self.props,
+                                 MPIBinCount=binCount, process=process)
 
-    # ------------------------------------------------------------------------------
-    # Utilities.
-
-    def get_top_n_callsites_by_attr(self, count, sort_attr):
-        """
-        Returns an array of callsites (sorted by `sort_attr`)
-        """
-        xgroup_df = self.entire_df.groupby(["name"]).mean()
-        sort_xgroup_df = xgroup_df.sort_values(by=[sort_attr], ascending=False)
-        callsites_df = sort_xgroup_df.nlargest(count, sort_attr)
-        return callsites_df.index.values.tolist()
-
-    def read_gf(self, read_parameter=True, read_graph=False):
+    # --------------------------------------------------------------------------
+    def _remove_read_gf(self, read_parameter=True, read_graph=False):
         """
         # Read a single dataset stored in .callflow directory.
         """
@@ -230,7 +222,7 @@ class SuperGraph(object):
 
         return {"df": df, "nxg": nxg, "graph": graph, "parameters": parameters}
 
-    def write_gf(self, write_df=True, write_graph=False, write_nxg=True):
+    def _remove_write_gf(self, write_df=True, write_graph=False, write_nxg=True):
         """
         # Write the dataset to .callflow directory.
         """
@@ -257,10 +249,44 @@ class SuperGraph(object):
             with open(graph_filepath, "a") as hatchet_graphFile:
                 hatchet_graphFile.write(self.gf.tree(color=False))
 
-    def write_similarity(self, datasets, states, type):
+    # --------------------------------------------------------------------------
+    def write_gf(self, write_df=True, write_graph=False, write_nxg=True):
+        path = os.path.join(self.props["save_path"], self.tag)
+        self.gf.write(path, write_df, write_graph, write_nxg)
+
+    # --------------------------------------------------------------------------
+    @staticmethod
+    def read_parameters(path):
+
+        fname = os.path.join(path, SuperGraph._FILENAMES['params'])
+        LOGGER.info(f"[Read] {fname}")
+
+        parameters = None
+        for line in open(fname, "r"):
+            s = 0
+            for num in line.strip().split(","):
+                split_num = num.split("=")
+                parameters[split_num[0]] = split_num[1]
+
+        return parameters
+
+    @staticmethod
+    def read_auxiliary_data(path):
+
+        fname = os.path.join(path,  SuperGraph._FILENAMES['aux'])
+        LOGGER.info(f"[Read] {fname}")
+        data = None
+        with open(fname, "r") as fptr:
+            data = json.load(fptr)
+        return data
+
+    # ------------------------------------------------------------------------------
+    #TODO: if this has any future, make this a static function
+    def _unused_write_similarity(self, datasets, states, type):
         """
         # Write the pair-wise graph similarities into .callflow directory.
         """
+        assert False
         ret = {}
         for idx, dataset in enumerate(datasets):
             ret[dataset] = []
@@ -275,19 +301,44 @@ class SuperGraph(object):
         with open(similarity_filepath, "w") as json_file:
             json.dump(ret, json_file)
 
-    def read_auxiliary_data(self):
-        """
-        # Read the auxiliary data from all_data.json. 
-        """
-        all_data_filepath = os.path.join(
-            self.props["save_path"], self.tag, "auxiliary_data.json"
-        )
-        LOGGER.info(f"[Read] {all_data_filepath}")
-        with open(all_data_filepath, "r") as filter_graphFile:
-            data = json.load(filter_graphFile)
-        return data
+    # --------------------------------------------------------------------------
+    def print_information(self):
+        LOGGER.info("Modules: {0}".format(self.gf.df["module"].unique()))
+        LOGGER.info("Top 10 Inclusive time: ")
+        top = 10
+        rank_df = self.gf.df.groupby(["name", "nid"]).mean()
+        top_inclusive_df = rank_df.nlargest(top, "time (inc)", keep="first")
+        for name, row in top_inclusive_df.iterrows():
+            LOGGER.info("{0} [{1}]".format(name, row["time (inc)"]))
 
-    # ------------------------------------------------------------------------------
+        LOGGER.info("Top 10 Enclusive time: ")
+        top_exclusive_df = rank_df.nlargest(top, "time", keep="first")
+        for name, row in top_exclusive_df.iterrows():
+            LOGGER.info("{0} [{1}]".format(name, row["time"]))
+
+        for node in self.gf.nxg.nodes(data=True):
+            LOGGER.info("Node: {0}".format(node))
+        for edge in self.gf.nxg.edges():
+            LOGGER.info("Edge: {0}".format(edge))
+
+        LOGGER.info("Nodes in the tree: {0}".format(len(self.gf.nxg.nodes)))
+        LOGGER.info("Edges in the tree: {0}".format(len(self.gf.nxg.edges)))
+        LOGGER.info("Is it a tree? : {0}".format(nx.is_tree(self.gf.nxg)))
+        LOGGER.info("Flow hierarchy: {0}".format(nx.flow_hierarchy(self.gf.nxg)))
+
+    # --------------------------------------------------------------------------
+    # Utilities.
+    def get_top_n_callsites_by_attr(self, count, sort_attr):
+        """
+        Returns an array of callsites (sorted by `sort_attr`)
+        """
+        assert False # TODO: still using self.entire_df
+        xgroup_df = self.entire_df.groupby(["name"]).mean()
+        sort_xgroup_df = xgroup_df.sort_values(by=[sort_attr], ascending=False)
+        callsites_df = sort_xgroup_df.nlargest(count, sort_attr)
+        return callsites_df.index.values.tolist()
+
+    # --------------------------------------------------------------------------
     # NetworkX graph utility functions.
     def create_target_maps(self, dataset):
         # Reduce the entire_df to respective target dfs.
@@ -345,6 +396,7 @@ class SuperGraph(object):
         self.module_time_exc_map = self.module_group_df["time"].max().to_dict()
         self.name_time_exc_map = self.module_name_group_df["time"].max().to_dict()
 
+    # --------------------------------------------------------------------------
     def remove_cycles_in_paths(self, path):
         ret = []
         moduleMapper = {}
@@ -380,33 +432,7 @@ class SuperGraph(object):
 
         return ret
 
-    def print_information(self):
-        LOGGER.info("Modules: {0}".format(self.supergraph.gf.df["module"].unique()))
-        LOGGER.info("Top 10 Inclusive time: ")
-        top = 10
-        rank_df = self.supergraph.gf.df.groupby(["name", "nid"]).mean()
-        top_inclusive_df = rank_df.nlargest(top, "time (inc)", keep="first")
-        for name, row in top_inclusive_df.iterrows():
-            LOGGER.info("{0} [{1}]".format(name, row["time (inc)"]))
-
-        LOGGER.info("Top 10 Enclusive time: ")
-        top_exclusive_df = rank_df.nlargest(top, "time", keep="first")
-        for name, row in top_exclusive_df.iterrows():
-            LOGGER.info("{0} [{1}]".format(name, row["time"]))
-
-        for node in self.supergraph.gf.nxg.nodes(data=True):
-            LOGGER.info("Node: {0}".format(node))
-        for edge in self.supergraph.gf.nxg.edges():
-            LOGGER.info("Edge: {0}".format(edge))
-
-        LOGGER.info("Nodes in the tree: {0}".format(len(self.supergraph.gf.nxg.nodes)))
-        LOGGER.info("Edges in the tree: {0}".format(len(self.supergraph.gf.nxg.edges)))
-        LOGGER.info("Is it a tree? : {0}".format(nx.is_tree(self.supergraph.gf.nxg)))
-        LOGGER.info(
-            "Flow hierarchy: {0}".format(nx.flow_hierarchy(self.supergraph.gf.nxg))
-        )
-
-    # ------------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     # Module hierarchy.
     # TODO: we might have to delete the module hierarchy file in modules later.
     # TODO: This might fail.
@@ -495,12 +521,15 @@ class SuperGraph(object):
     # Add paths according to what input is provided.
     # Should be implemented by the child classes.
     def add_paths(self, path):
+        assert False
         pass
 
     def add_node_attributes(self):
+        assert False
         pass
 
     def add_edge_attribtues(self):
+        assert False
         pass
 
     # ------------------------------------------------------------------------------
@@ -547,6 +576,8 @@ class SuperGraph(object):
         return paths
 
     def add_reveal_paths(self, reveal_callsites):
+        #TODO: this will fail because there is no self.supergraph
+        assert False
         paths = self.callsite_paths(reveal_callsites)
 
         for path in paths:
@@ -603,12 +634,14 @@ class SuperGraph(object):
                     )
 
     def add_exit_callsite():
+        assert False
         # TODO: This code is missing for some reason.
         pass
 
-    # ------------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     # Create a module hierarchy for a chosen module.
     # Not fully tested. Might break.
+    # TODO: these functions should be private (preprend _) and static
     def module_entry_functions_map(self, graph):
         entry_functions = {}
         for edge in graph.edges(data=True):
@@ -726,3 +759,5 @@ class SuperGraph(object):
                     )
 
         self.supergraph.gf.nxg.remove_node(reveal_module)
+
+    # --------------------------------------------------------------------------

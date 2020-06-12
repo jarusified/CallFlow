@@ -13,15 +13,21 @@ import networkx as nx
 # ------------------------------------------------------------------------------
 # CallFlow imports
 import callflow
-
 LOGGER = callflow.get_logger(__name__)
 
 # ------------------------------------------------------------------------------
 # GraphFrame Class
-class GraphFrame(ht.GraphFrame):
+class GraphFrame (ht.GraphFrame):
+
+    # --------------------------------------------------------------------------
+    _FILENAMES = {'ht': 'hatchet_tree.txt',
+                 'df': 'df.csv',
+                 'nxg': 'nxg.json'}
+
+    # --------------------------------------------------------------------------
     def __init__(self, graph=None, dataframe=None, exc_metrics=None, inc_metrics=None):
         """
-
+        Initialize a graph grame object.
         """
 
         # TODO: will we ever want to create a graphframe without data?
@@ -35,9 +41,62 @@ class GraphFrame(ht.GraphFrame):
         if graph:
             self.nxg = self.hatchet_graph_to_nxg(graph)
 
+
+    # --------------------------------------------------------------------------
+    def write(self, path, write_df=True, write_graph=False, write_nxg=True):
+
+        if not write_df and not write_graph and not write_nxg:
+            return
+
+        import json
+        LOGGER.info("Writing graphframe to ({0})".format(path))
+
+        # dump the filtered dataframe to csv if write_df is true.
+        if write_df:
+            self.df.to_csv( os.path.join(path, GraphFrame._FILENAMES['df']) )
+
+        if write_graph:
+            fname = os.path.join(os.path.join(path, GraphFrame._FILENAMES['ht']))
+            with open(fname, 'a') as fptr:
+                fptr.write(super().tree(color=False))
+
+        # TODO: Writing fails.
+        if write_nxg:
+            fname = os.path.join(os.path.join(path, GraphFrame._FILENAMES['nxg']))
+            with open(fname, 'a') as fptr:
+                nxg = nx.readwrite.json_graph.node_link_data(self.nxg)
+                json.dump(nxg, fptr)
+
+    def read(self, path, read_graph=False):
+
+        import json
+        LOGGER.info("Reading graphframe from ({0})".format(path))
+
+        # TODO: this function should not use assertions
+        # but throw "ArgumentError" if file is not found, or data is not as expected
+        fname = os.path.join(path, GraphFrame._FILENAMES['df'])
+        self.df = pd.read_csv(fname)
+        if self.df.empty:
+            raise ValueError(f"{fname} is empty.")
+
+
+        fname = os.path.join(path, GraphFrame._FILENAMES['nxg'])
+        with open(fname, "r") as nxg_file:
+            graph = json.load(nxg_file)
+            self.nxg = json_graph.node_link_graph(graph)
+            assert nxg != None
+
+
+        self.graph = None
+        if read_graph:
+            fname = os.path.join(path, GraphFrame._FILENAMES['ht'])
+            with open(fname, "r") as graph_file:
+                self.graph = json.load(graph_file)
+
+            assert isinstance(graph, ht.GraphFrame.Graph)
+
     # --------------------------------------------------------------------------
     # Hatchet's GraphFrame utilities.
-
     @staticmethod
     def from_hatchet(gf):
         """
@@ -77,17 +136,17 @@ class GraphFrame(ht.GraphFrame):
         return GraphFrame.from_hatchet(gf)
 
     @staticmethod
-    def from_data(data):
+    def _remove_from_data(data):
         """
-        Create GraphFrame from 3 sets of information : df, graph, nxg. 
+        Create GraphFrame from 3 sets of information : df, graph, nxg.
         """
         # Hatchet requires node and rank to be indexes.
         data["df"] = data["df"].set_index(["node", "rank"])
 
         # Create a graphframe using Hatchet.
-        gf = GraphFrame(dataframe=data["df"], graph=data["graph"])
-
-        # Store the nxg.
+        gf = GraphFrame()
+        gf.df = data["df"]
+        gf.graph = data["graph"]
         gf.nxg = data["nxg"]
 
         # remove the set indexes to maintain consistency.
@@ -95,26 +154,37 @@ class GraphFrame(ht.GraphFrame):
         return gf
 
     # --------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     # callflow.graph utilities.
-    #
+
     @staticmethod
-    def hatchet_graph_to_nxg(hatchet_graph):
+    def hatchet_graph_to_nxg(gf):
         """
-        Constructs a networkX graph from hatchet graph. 
+        Constructs a networkX graph from hatchet graph.
         """
+        assert isinstance(gf, ht.graph.Graph)
+
+        def _get_node_name(nd):
+            nm = callflow.utils.sanitize_name(nd["name"])
+            if nd["line"] != "NA":      nm += ":" + str(nd["line"])
+            return nm
+
+        # `node_dict_from_frame` converts the hatchet's frame to a dictionary
+        from callflow.utils import node_dict_from_frame
+
         nxg = nx.DiGraph()
-        for root in hatchet_graph.roots:
+        for root in gf.roots:
             node_gen = root.traverse()
 
-            root_dict = callflow.utils.node_dict_from_frame(root.frame)
+            root_dict = node_dict_from_frame(root.frame)
             root_name = root_dict["name"]
             root_paths = root.paths()
             node = root
 
             try:
                 while node:
-                    # `getNodeDictFromFrame` converts the hatchet's frame to
-                    node_dict = callflow.utils.node_dict_from_frame(node.frame)
+
+                    node_dict = node_dict_from_frame(node.frame)
                     node_name = node_dict["name"]
 
                     # Get all node paths from hatchet.
@@ -124,39 +194,12 @@ class GraphFrame(ht.GraphFrame):
                     for node_path in node_paths:
                         if len(node_path) >= 2:
 
-                            source_node_dict = callflow.utils.node_dict_from_frame(
-                                node_path[-2]
-                            )
-                            target_node_dict = callflow.utils.node_dict_from_frame(
-                                node_path[-1]
-                            )
+                            src_node = node_dict_from_frame(node_path[-2])
+                            trg_node = node_dict_from_frame(node_path[-1])
 
-                            if source_node_dict["line"] != "NA":
-                                source_node_name = (
-                                    callflow.utils.sanitize_name(
-                                        source_node_dict["name"]
-                                    )
-                                    + ":"
-                                    + str(source_node_dict["line"])
-                                )
-                            else:
-                                source_node_name = callflow.utils.sanitize_name(
-                                    source_node_dict["name"]
-                                )
-                            if target_node_dict["line"] != "NA":
-                                target_node_name = (
-                                    callflow.utils.sanitize_name(
-                                        target_node_dict["name"]
-                                    )
-                                    + ":"
-                                    + str(target_node_dict["line"])
-                                )
-                            else:
-                                target_node_name = callflow.utils.sanitize_name(
-                                    target_node_dict["name"]
-                                )
-
-                            nxg.add_edge(source_node_name, target_node_name)
+                            src_name = _get_node_name(src_node)
+                            trg_name = _get_node_name(trg_node)
+                            nxg.add_edge(src_name, trg_name)
 
                     node = next(node_gen)
 
@@ -175,14 +218,13 @@ class GraphFrame(ht.GraphFrame):
         """
         Rename graph to obtain disjoint node labels
         """
+        assert isinstance(graph, nx.DiGraph)
         if prefix is None:
             return graph
 
         def label(x):
-            if is_string_like(x):
-                name = prefix + x
-            else:
-                name = prefix + repr(x)
+            if is_string_like(x):   name = prefix + x
+            else:                   name = prefix + repr(x)
             return name
 
         return nx.relabel_nodes(graph, label)
@@ -197,22 +239,16 @@ class GraphFrame(ht.GraphFrame):
 
     @staticmethod
     def leaves_below(nxg, node):
-        return set(
-            sum(
-                (
-                    [vv for vv in v if nxg.out_degree(vv) == 0]
-                    for k, v in nx.dfs_successors(nxg, node).items()
-                ),
-                [],
-            )
-        )
+        assert isinstance(graph, nx.DiGraph)
+        return set(sum(([vv for vv in v if nxg.out_degree(vv) == 0]
+                            for k, v in nx.dfs_successors(nxg, node).items()),
+                        [],))
 
     # --------------------------------------------------------------------------
     # callflow.df utilities
     def lookup(self, node):
-        return self.df.loc[
-            (self.df["name"] == node.callpath[-1]) & (self.df["nid"] == node.nid)
-        ]
+        return self.df.loc[ (self.df["name"] == node.callpath[-1]) &
+                            (self.df["nid"]  == node.nid) ]
 
     def lookup_with_node(self, node):
         return self.df.loc[self.df["name"] == node.callpath[-1]]
@@ -225,5 +261,6 @@ class GraphFrame(ht.GraphFrame):
 
     def update_df(self, col_name, mapping):
         self.df[col_name] = self.df["name"].apply(
-            lambda node: mapping[node] if node in mapping.keys() else ""
-        )
+            lambda node: mapping[node] if node in mapping.keys() else "")
+
+    # --------------------------------------------------------------------------
