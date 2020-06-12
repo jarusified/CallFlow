@@ -65,7 +65,7 @@ class GraphFrame (ht.GraphFrame):
             fname = os.path.join(os.path.join(path, GraphFrame._FILENAMES['nxg']))
             with open(fname, 'a') as fptr:
                 nxg = nx.readwrite.json_graph.node_link_data(self.nxg)
-                json.dump(nxg, fptr)
+                json.dump(nxg, fptr, indent=2)
 
     def read(self, path, read_graph=False):
 
@@ -88,8 +88,8 @@ class GraphFrame (ht.GraphFrame):
         fname = os.path.join(path, GraphFrame._FILENAMES['nxg'])
         with open(fname, "r") as nxg_file:
             graph = json.load(nxg_file)
-            self.nxg = json_graph.node_link_graph(graph)
-            assert nxg != None
+            self.nxg = nx.readwrite.json_graph.node_link_graph(graph)
+            assert self.nxg != None
 
 
         self.graph = None

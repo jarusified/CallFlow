@@ -69,8 +69,10 @@ class SuperGraph (object):
 
             path = os.path.join(self.dirname, self.tag)
 
+            self.gf = callflow.GraphFrame()
             self.gf.read(path)
-            parameters = SuperGraph.read_parameter(path)   #TODO: where is this supposed to go?
+
+            #parameters = SuperGraph.read_parameters(path)   #TODO: where is this supposed to go?
             self.auxiliary_data = SuperGraph.read_auxiliary_data(path)
 
             #self.create_gf(data=data)
