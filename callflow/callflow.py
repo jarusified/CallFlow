@@ -24,37 +24,37 @@ LOGGER = callflow.get_logger(__name__)
 # ------------------------------------------------------------------------------
 # CallFlow class
 class CallFlow:
-    def __init__(self, config={}, process=False, ensemble=False):
+    def __init__(self, config, process=False, ensemble=False):
         """
         Entry interface to access CallFlow's functionalities. "
         """
 
         # Assert if config is provided.
-        assert config != None
+        assert isinstance(config, callflow.operations.ConfigFileReader)
 
         # Convert config json to props. Never touch self.config ever.
         self.props = json.loads(json.dumps(config, default=lambda o: o.__dict__))
-        # Assert ensemble if it really contains more than 1 dataset.
-        assert ensemble == (len(self.props["dataset_names"]) > 1)
+        #LOGGER.debug('Callflow.init() -- {}'.format(self.props.keys()))
+
+        ndatasets = len(self.props["dataset_names"])
+        assert ensemble == (ndatasets > 1)
 
         # Based on option, either process into .callflow or read from .callflow.
         if process:
             self._create_dot_callflow_folder()
-            if ensemble:
-                self._process_ensemble()
-            else:
-                self._process_single()
-        else:  # Rendering of call graphs.
+            if ensemble:    self._process_ensemble()
+            else:           self._process_single()
+
+         # Rendering of call graphs.
+        else:
             if ensemble:
                 self.supergraphs = self._read_ensemble()
                 # assertion here is 1 less than self.supergraph.keys, becasuse
                 # self.supergraphs contains the ensemble supergraph as well.
-                assert (
-                    len(self.props["dataset_names"]) == len(self.supergraphs.keys()) - 1
-                )
+                assert len(self.supergraphs.keys()) == 1 + ndatasets
             else:
                 self.supergraphs = self._read_single()
-                assert len(self.props["dataset_names"]) == 1
+                assert len(self.supergraphs.keys()) == 1
 
             # Adds basic information to props.
             # Props is later return to client app on "init" request.
@@ -93,13 +93,13 @@ class CallFlow:
 
     def _remove_dot_callflow_folder(self):
         """
-        TODO: We might want to delete the .callflow folder when we re-process/re-write. 
+        TODO: We might want to delete the .callflow folder when we re-process/re-write.
         """
         pass
 
     def _process_single(self):
         """
-        Single dataset processing. 
+        Single dataset processing.
         """
         dataset_name = self.props["dataset_names"][0]
         supergraph = SuperGraph(props=self.props, tag=dataset_name, mode="process")
@@ -125,7 +125,7 @@ class CallFlow:
 
     def _process_ensemble(self):
         """
-        Ensemble processing of datasets. 
+        Ensemble processing of datasets.
         """
         # Before we process the ensemble, we perform single processing on all datasets.
         single_supergraphs = {}
@@ -259,7 +259,7 @@ class CallFlow:
     def request_single(self, operation):
         """
         TODO: Write individual functiosn to do this.
-        Handles all the socket requests connected to Single CallFlow. 
+        Handles all the socket requests connected to Single CallFlow.
         """
         LOGGER.info(f"[Single Mode] {operation}")
         operation_tag = operation["name"]
@@ -302,9 +302,10 @@ class CallFlow:
             graph = CCT(
                 supergraphs=self.supergraphs,
                 tag=operation["dataset"],
+                props=self.props,
                 callsite_count=operation["functionsInCCT"],
             )
-            return graph.g
+            return graph.gf.nxg
 
         elif operation_tag == "function":
             functionlist = FunctionList(state, operation["module"], operation["nid"])
@@ -313,7 +314,7 @@ class CallFlow:
     def request_ensemble(self, operation):
         """
         TODO: Write individual functiosn to do this.
-        Handles all the socket requests connected to Single CallFlow. 
+        Handles all the socket requests connected to Single CallFlow.
         """
         operation_tag = operation["name"]
         datasets = self.props["dataset_names"]

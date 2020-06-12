@@ -16,9 +16,11 @@ import callflow
 from callflow.timer import Timer
 from callflow import SuperGraph
 
+
 # ------------------------------------------------------------------------------
 # CCT Rendering class.
 class CCT(SuperGraph):
+
     def __init__(self, supergraphs={}, tag="", props={}, callsite_count=50):
         # Call the SuperGraph class init.
         super(CCT, self).__init__(props=props, tag=tag, mode="render")
@@ -106,7 +108,7 @@ class CCT(SuperGraph):
 
     def dataset_map(self, nodes, run):
         """
-        Construct maps for each dataset. 
+        Construct maps for each dataset.
         """
         ret = {}
         for callsite in self.supergraph.gf.nxg.nodes():
