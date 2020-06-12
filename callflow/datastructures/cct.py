@@ -28,7 +28,6 @@ class Render_CCT(SuperGraph):
 
         print ('len of supergraphs = ', len(supergraphs))
         print ('keys of supergraphs = ', supergraphs.keys())
-        print ('supergraphs[calc-pi] = ', supergraphs['calc-pi'])
         print ('tag = ', tag)
         print ('callsite_count = ', callsite_count)
         print ('props = ', props)
@@ -482,7 +481,6 @@ class Render_CCT(SuperGraph):
 
                         if edges:
                             # how can you pass a single element into tailhead?
-                            assert False
                             last_head = Render_CCT._tailhead(edges[-1], is_directed, orientation)[1]
                             if tail == last_head:
                                 break

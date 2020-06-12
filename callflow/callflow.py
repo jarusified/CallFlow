@@ -203,15 +203,13 @@ class CallFlow:
             supergraphs[dataset_name] = SuperGraph(
                 self.props, dataset_name, mode="render"
             )
-            supergraphs[dataset_name].read_gf(
-                read_parameter=self.props["read_parameter"]
-            )
+            #supergraphs[dataset_name].read_gf(read_parameter=self.props["read_parameter"])
 
         supergraphs["ensemble"] = EnsembleGraph(
             props=self.props, tag="ensemble", mode="render"
         )
-        supergraphs["ensemble"].read_gf(read_parameter=self.props["read_parameter"])
-        supergraphs["ensemble"].read_auxiliary_data()
+        #supergraphs["ensemble"].read_gf(read_parameter=self.props["read_parameter"])
+        #supergraphs["ensemble"].read_auxiliary_data()
         return supergraphs
 
     # --------------------------------------------------------------------------
