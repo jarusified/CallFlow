@@ -87,6 +87,12 @@ class SuperGraph (object):
         self.projection_data = {}
 
     # --------------------------------------------------------------------------
+    def get_module_name(self, callsite):
+        if callsite in self.props['callsite_module_map']:
+            return self.props['callsite_module_map'][callsite]
+        #else:
+        return self.gf.lookup_with_name(callsite)['module'].unique()[0]
+
     def _remove__getter(self):
         """
         Getter for graphframe. Returns the graphframe.

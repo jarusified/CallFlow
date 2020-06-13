@@ -152,10 +152,9 @@ class CallFlowServer:
             :return: Config file (JSON Format).
             """
             LOGGER.debug(f"[Socket request] init: {data}")
-            LOGGER.warning('------------------ temporary hardcoding -----------')
-            if False: #data["mode"] == "Ensemble":
+            if data["mode"] == "Ensemble":
                 result = self.callflow.request_ensemble({"name": "init"})
-            else: #if data["mode"] == "Single":
+            elif data["mode"] == "Single":
                 result = self.callflow.request_single({"name": "init"})
             json_result = json.dumps(result)
             emit("init", json_result, json=True)

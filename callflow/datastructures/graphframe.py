@@ -262,7 +262,7 @@ class GraphFrame (ht.GraphFrame):
 
     def filter_by_name(self, names):
         assert isinstance(names, list)
-        self.df = self.df[self.df['name'].isin(names)]
+        return self.df[self.df['name'].isin(names)]
 
     def lookup_with_node(self, node):
         return self.df.loc[self.df["name"] == node.callpath[-1]]

@@ -297,13 +297,13 @@ class CallFlow:
             return minihistogram.result
 
         elif operation_tag == "cct":
-            graph = Render_CCT(
-                supergraphs=self.supergraphs,
-                tag=operation["dataset"],
-                props=self.props,
+            result = Render_CCT(
+                supergraph=self.supergraphs[operation['dataset']],
+                #tag=operation["dataset"],
+                #props=self.props,
                 callsite_count=operation["functionsInCCT"],
             )
-            return graph.supergraph.gf.nxg
+            return result.nxg
 
         elif operation_tag == "function":
             functionlist = FunctionList(state, operation["module"], operation["nid"])
@@ -322,12 +322,12 @@ class CallFlow:
 
         elif operation_tag == "ensemble_cct":
             result = Render_CCT(
-                supergraphs=self.supergraphs,
-                tag="ensemble",
-                props=self.props,
+                supergraph=self.supergraphs['ensemble'],
+                #tag="ensemble",
+                #props=self.props,
                 callsite_count=operation["functionsInCCT"],
             )
-            return result.supergraph.gf.nxg
+            return result.nxg
 
         elif operation_tag == "supergraph":
             if "reveal_callsites" in operation:
