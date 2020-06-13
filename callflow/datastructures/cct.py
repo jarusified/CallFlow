@@ -20,11 +20,23 @@ from callflow import SuperGraph
 
 # ------------------------------------------------------------------------------
 # CCT Rendering class.
-class Render_CCT(SuperGraph):
+class Render_CCT(): #(SuperGraph):
 
     def __init__(self, supergraphs, tag, props, callsite_count=50):
 
-        super().__init__(props=props, tag=tag, mode="render")
+        #super().__init__(props=props, tag=tag, mode="render")
+
+        self.timer = Timer()
+
+        '''
+        # Props is the information contained in config object.
+        # We duplicate this to add more information to config
+        # and not modify it as a side effect.
+        self.supergraph.props = props
+        self.dirname = self.supergraph.props["save_path"]
+        '''
+
+
 
         print ('len of supergraphs = ', len(supergraphs))
         print ('keys of supergraphs = ', supergraphs.keys())
@@ -123,20 +135,20 @@ class Render_CCT(SuperGraph):
         Construct the ensemble map
         """
         for callsite in self.supergraph.gf.nxg.nodes():
-            if callsite not in self.props["callsite_module_map"]:
+            if callsite not in self.supergraph.props["callsite_module_map"]:
                 module = self.supergraph.gf.df.loc[
                     self.supergraph.gf.df["name"] == callsite
                 ]["module"].unique()[0]
             else:
-                module = self.props["callsite_module_map"][callsite]
+                module = self.supergraph.props["callsite_module_map"][callsite]
 
             for column in self.columns:
                 if column not in ret:
                     ret[column] = {}
                 if column == "time (inc)":
-                    ret[column][callsite] = self.name_time_inc_map[(module, callsite)]
+                    ret[column][callsite] = self.supergraph.name_time_inc_map[(module, callsite)]
                 elif column == "time":
-                    ret[column][callsite] = self.name_time_exc_map[(module, callsite)]
+                    ret[column][callsite] = self.supergraph.name_time_exc_map[(module, callsite)]
                 elif column == "name":
                     ret[column][callsite] = callsite
                 elif column == "module":
@@ -150,25 +162,25 @@ class Render_CCT(SuperGraph):
         """
         ret = {}
         for callsite in self.supergraph.gf.nxg.nodes():
-            if callsite not in self.props["callsite_module_map"]:
+            if callsite not in self.supergraph.props["callsite_module_map"]:
                 module = self.supergraph.gf.df.loc[
                     self.supergraph.gf.df["name"] == callsite
                 ]["module"].unique()[0]
             else:
-                module = self.props["callsite_module_map"][callsite]
+                module = self.supergraph.props["callsite_module_map"][callsite]
 
-            if callsite in self.target_module_callsite_map[run].keys():
+            if callsite in self.supergraph.target_module_callsite_map[run].keys():
                 if callsite not in ret:
                     ret[callsite] = {}
 
                 for column in self.columns:
                     if column == "time (inc)":
-                        ret[callsite][column] = self.target_module_time_inc_map[run][
+                        ret[callsite][column] = self.supergraph.target_module_time_inc_map[run][
                             module
                         ]
 
                     elif column == "time":
-                        ret[callsite][column] = self.target_module_time_exc_map[run][
+                        ret[callsite][column] = self.supergraph.target_module_time_exc_map[run][
                             module
                         ]
 
@@ -242,7 +254,6 @@ class Render_CCT(SuperGraph):
         return edges
 
     # --------------------------------------------------------------------------
-
     @staticmethod
     def _tailhead(edge, is_directed, orientation=None):
 
@@ -269,8 +280,8 @@ class Render_CCT(SuperGraph):
         # ----------------------------------------------------------------------
         # TODO: probably belongs to supergraph
         def _get_module_name(callsite):
-            if callsite in self.props['callsite_module_map']:
-                return self.props['callsite_module_map'][callsite]
+            if callsite in self.supergraph.props['callsite_module_map']:
+                return self.supergraph.props['callsite_module_map'][callsite]
             #else:
             return self.supergraph.gf.lookup_with_name(callsite)['module'].unique()[0]
 
@@ -286,9 +297,9 @@ class Render_CCT(SuperGraph):
                    datamap[column] = {}
 
                 if column == "time (inc)":
-                    datamap[column][callsite] = self.name_time_inc_map[(module, callsite)]
+                    datamap[column][callsite] = self.supergraph.name_time_inc_map[(module, callsite)]
                 elif column == "time":
-                    datamap[column][callsite] = self.name_time_exc_map[(module, callsite)]
+                    datamap[column][callsite] = self.supergraph.name_time_exc_map[(module, callsite)]
                 elif column == "name":
                     datamap[column][callsite] = callsite
                 elif column == "module":
@@ -306,7 +317,7 @@ class Render_CCT(SuperGraph):
             datamap = {}
             for callsite in self.supergraph.gf.nxg.nodes():
 
-                if callsite not in self.target_module_callsite_map[run].keys():
+                if callsite not in self.supergraph.target_module_callsite_map[run].keys():
                     continue
 
                 module = _get_module_name(callsite)
@@ -320,9 +331,9 @@ class Render_CCT(SuperGraph):
                        datamap[column] = {}
 
                     if column == "time (inc)":
-                        datamap[callsite][column] = self.target_module_time_inc_map[run][module]
+                        datamap[callsite][column] = self.supergraph.target_module_time_inc_map[run][module]
                     elif column == "time":
-                        datamap[callsite][column] = self.target_module_time_exc_map[run][module]
+                        datamap[callsite][column] = self.supergraph.target_module_time_exc_map[run][module]
                     elif column == "module":
                         datamap[callsite][column] = module
                     elif column == "name":

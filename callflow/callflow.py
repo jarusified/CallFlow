@@ -303,7 +303,7 @@ class CallFlow:
                 props=self.props,
                 callsite_count=operation["functionsInCCT"],
             )
-            return graph.gf.nxg
+            return graph.supergraph.gf.nxg
 
         elif operation_tag == "function":
             functionlist = FunctionList(state, operation["module"], operation["nid"])
@@ -327,7 +327,7 @@ class CallFlow:
                 props=self.props,
                 callsite_count=operation["functionsInCCT"],
             )
-            return result.gf.nxg
+            return result.supergraph.gf.nxg
 
         elif operation_tag == "supergraph":
             if "reveal_callsites" in operation:

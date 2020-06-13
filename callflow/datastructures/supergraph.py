@@ -586,7 +586,7 @@ class SuperGraph (object):
                 source = edge["source"]
                 target = edge["target"]
 
-                if not self.supergraph.gf.nxg.has_edge(source, target):
+                if not self.gf.nxg.has_edge(source, target):
                     if idx == 0:
                         source_callsite = source
                         source_df = self.module_group_df.get_group((module))
@@ -610,13 +610,13 @@ class SuperGraph (object):
                     edge_type = "normal"
 
                     print(f"Adding edge: {source_callsite}, {target_callsite}")
-                    self.supergraph.gf.nxg.add_node(
+                    self.gf.nxg.add_node(
                         source, attr_dict={"type": source_node_type}
                     )
-                    self.supergraph.gf.nxg.add_node(
+                    self.gf.nxg.add_node(
                         target, attr_dict={"type": target_node_type}
                     )
-                    self.supergraph.gf.nxg.add_edge(
+                    self.gf.nxg.add_edge(
                         source,
                         target,
                         attr_dict=[
@@ -689,7 +689,7 @@ class SuperGraph (object):
         return ret
 
     def add_entry_callsite(self, reveal_module):
-        entry_functions_map = self.module_entry_functions_map(self.supergraph.gf.nxg)
+        entry_functions_map = self.module_entry_functions_map(self.gf.nxg)
         reveal_callsites = entry_functions_map[reveal_module]
         paths = self.callsitePathInformation(reveal_callsites)
 
@@ -706,15 +706,15 @@ class SuperGraph (object):
 
             if len(source_edges_to_remove) != 0:
                 for edge in source_edges_to_remove:
-                    if self.supergraph.gf.nxg.has_edge(edge["source"], edge["target"]):
-                        self.supergraph.gf.nxg.remove_edge(
+                    if self.gf.nxg.has_edge(edge["source"], edge["target"]):
+                        self.gf.nxg.remove_edge(
                             (edge["source"], edge["target"])
                         )
-                    self.supergraph.gf.nxg.add_node(
+                    self.gf.nxg.add_node(
                         reveal_module + "=" + edge["source_callsite"],
                         attr_dict={"type": "component-node"},
                     )
-                    self.supergraph.gf.nxg.add_edge(
+                    self.gf.nxg.add_edge(
                         (reveal_module + "=" + edge["source_callsite"], edge["target"]),
                         attr_dict=[
                             {
@@ -731,15 +731,15 @@ class SuperGraph (object):
 
             if len(target_edges_to_remove) != 0:
                 for edge in target_edges_to_remove:
-                    if self.supergraph.gf.nxg.has_edge(edge["source"], edge["target"]):
-                        self.supergraph.gf.nxg.remove_edge(
+                    if self.gf.nxg.has_edge(edge["source"], edge["target"]):
+                        self.gf.nxg.remove_edge(
                             edge["source"], edge["target"]
                         )
-                    self.supergraph.gf.nxg.add_node(
+                    self.gf.nxg.add_node(
                         reveal_module + "=" + edge["target_callsite"],
                         attr_dict={"type": "component-node"},
                     )
-                    self.supergraph.gf.nxg.add_edge(
+                    self.gf.nxg.add_edge(
                         edge["source"],
                         reveal_module + "=" + edge["target_callsite"],
                         attr_dict=[
@@ -755,6 +755,6 @@ class SuperGraph (object):
                         ],
                     )
 
-        self.supergraph.gf.nxg.remove_node(reveal_module)
+        self.gf.nxg.remove_node(reveal_module)
 
     # --------------------------------------------------------------------------
