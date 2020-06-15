@@ -59,13 +59,16 @@ class SuperGraph (object):
         self.target_module_time_exc_map = {}
         self.target_name_time_inc_map = {}
         self.target_name_time_exc_map = {}
+        self.projection_data = {}
 
+        self.create_gf()
 
+    def create_gf(self):
         # Create a graphframe based on the mode.
-        if mode == "process":
+        if self.mode == "process":
             self.gf = callflow.GraphFrame.from_config(self.props, self.tag)
 
-        elif mode == "render":
+        elif self.mode == "render":
 
             path = os.path.join(self.dirname, self.tag)
 
@@ -84,7 +87,6 @@ class SuperGraph (object):
                 for dataset in self.props["dataset_names"]:
                     self.create_target_maps(dataset)
 
-        self.projection_data = {}
 
     # --------------------------------------------------------------------------
     def get_module_name(self, callsite):

@@ -57,13 +57,13 @@ class GraphFrame (ht.GraphFrame):
 
         if write_graph:
             fname = os.path.join(os.path.join(path, GraphFrame._FILENAMES['ht']))
-            with open(fname, 'a') as fptr:
+            with open(fname, 'w') as fptr:
                 fptr.write(super().tree(color=False))
 
         # TODO: Writing fails.
         if write_nxg:
             fname = os.path.join(os.path.join(path, GraphFrame._FILENAMES['nxg']))
-            with open(fname, 'a') as fptr:
+            with open(fname, 'w') as fptr:
                 nxg = nx.readwrite.json_graph.node_link_data(self.nxg)
                 json.dump(nxg, fptr, indent=2)
 
@@ -123,7 +123,8 @@ class GraphFrame (ht.GraphFrame):
             gf = ht.GraphFrame.from_hpctoolkit(config["data_path"])
 
         elif config["format"][name] == "caliper":
-            gf = ht.GraphFrame.from_caliper(config["data_path"])
+            data_path = os.path.join(config["data_path"], config["paths"][name])
+            gf = ht.GraphFrame.from_caliper(data_path, query="")
 
         elif config["format"][name] == "caliper_json":
             data_path = os.path.join(config["data_path"], config["paths"][name])

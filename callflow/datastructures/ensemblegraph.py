@@ -1,3 +1,4 @@
+import os
 import networkx as nx
 import pandas as pd
 import callflow
@@ -9,7 +10,7 @@ LOGGER = callflow.get_logger(__name__)
 class EnsembleGraph(SuperGraph):
     """
     TODO: Clean this up.
-    SuperGraph that handles the ensemble processing. 
+    SuperGraph that handles the ensemble processing.
     """
 
     def __init__(self, props={}, tag="", mode="process", supergraphs={}):
@@ -21,14 +22,12 @@ class EnsembleGraph(SuperGraph):
         # For each callsite we store the vector here.
         self.vector = {}
 
-    def create_gf(self, data=None):
+    def create_gf(self):
         """
-        Create the graphframes for the ensemble operation. 
+        Create the graphframes for the ensemble operation.
         """
         # Set the gf as first of the dataset's gf
-        if data:
-            self.gf = callflow.GraphFrame.from_data(data)
-        else:
+        if self.mode == "process":
             first_dataset = list(self.supergraphs.keys())[0]
             LOGGER.debug(f"Base for the union operation is: {first_dataset}")
 
@@ -42,9 +41,27 @@ class EnsembleGraph(SuperGraph):
 
             assert isinstance(self.gf, callflow.GraphFrame)
 
+        elif self.mode == "render":
+            path = os.path.join(self.dirname, self.tag)
+
+            self.gf = callflow.GraphFrame()
+            self.gf.read(path)
+
+            #parameters = SuperGraph.read_parameters(path)   #TODO: where is this supposed to go?
+            self.auxiliary_data = SuperGraph.read_auxiliary_data(path)
+
+            #self.create_gf(data=data)
+            #self.auxiliary_data = self.read_auxiliary_data()
+
+            with self.timer.phase(f"Creating the data maps."):
+                self.cct_df = self.gf.df[self.gf.df["name"].isin(self.gf.nxg.nodes())]
+                self.create_ensemble_maps()
+                for dataset in self.props["dataset_names"]:
+                    self.create_target_maps(dataset)
+
     def union_df(self):
         """
-        Union the dataframes. 
+        Union the dataframes.
         """
         df = pd.DataFrame([])
         for idx, tag in enumerate(self.supergraphs):
@@ -57,7 +74,7 @@ class EnsembleGraph(SuperGraph):
 
     def union_nxg(self):
         """
-        Union the netwprkX graph. 
+        Union the netwprkX graph.
         """
         nxg = nx.DiGraph()
         for idx, tag in enumerate(self.supergraphs):
@@ -70,7 +87,7 @@ class EnsembleGraph(SuperGraph):
     # Return the union of graphs G and H.
     def union_nxg_recurse(self, nxg_1, nxg_2, name=None, rename=(None, None)):
         """
-        Iterative concatenation of nodes from nxg_2 to nxg_1. 
+        Iterative concatenation of nodes from nxg_2 to nxg_1.
         """
         if not nxg_1.is_multigraph() == nxg_2.is_multigraph():
             raise nx.NetworkXError("G and H must both be graphs or multigraphs.")
@@ -133,7 +150,7 @@ class EnsembleGraph(SuperGraph):
 
     def add_node_attributes(self, H, node, dataset_name):
         """
-        TODO: Hoist this information to the df directly. 
+        TODO: Hoist this information to the df directly.
         """
         for idx, (key, val) in enumerate(H.nodes.items()):
             if dataset_name not in self.nxg.nodes[node]:

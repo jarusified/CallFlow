@@ -155,13 +155,13 @@ class CallFlow:
         )
 
         # Write the graphframe to file.
-        ensemble_supergraph.write_gf("entire")
+        # ensemble_supergraph.write_gf("entire")
 
         # Filter the ensemble graphframe.
         ensemble_supergraph.filter_gf(mode="ensemble")
 
         # Write the filtered graphframe.
-        ensemble_supergraph.write_gf("filter")
+        # ensemble_supergraph.write_gf("filter")
 
         # Group by module.
         ensemble_supergraph.group_gf(group_by="module")
