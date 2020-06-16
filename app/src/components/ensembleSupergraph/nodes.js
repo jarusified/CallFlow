@@ -6,6 +6,7 @@ import MeanGradients from "./nodes/meanGradients";
 import Guides from "./nodes/guides";
 import TargetLine from "./nodes/targetLine";
 import ToolTip from "./nodes/tooltip";
+import Mean from './nodes/mean';
 import MeanDiff from "./nodes/meanDiff";
 import RankDiff from "./nodes/rankDiff";
 
@@ -13,6 +14,7 @@ export default {
 	template: tpl,
 	name: "EnsembleNodes",
 	components: {
+		Mean,
 		ToolTip,
 		MeanGradients,
 		Guides,
@@ -111,13 +113,13 @@ export default {
 			this.rectangle();
 			this.postVis();
 
-			this.$store.mode = "mean-gradients";
+			this.$store.mode = "mean";
 
 			if (this.$store.mode == "mean-gradients") {
 				this.$refs.MeanGradients.init(this.graph.nodes, this.containerG);
 			}
 			else if (this.$store.mode == "mean") {
-				console.log("TODO");
+				this.$refs.Mean.init(this.graph.nodes, this.containerG);
 			}
 			else if (this.$store.mode == "mean-diff") {
 				console.log("TODO");
@@ -128,14 +130,14 @@ export default {
 
 			this.ensemblePath();
 			this.text();
-			if (this.$store.showTarget) {
+			if (this.$store.showTarget && this.$store.selectedMode == 'Ensemble') {
 				this.$refs.TargetLine.init(this.graph.nodes);
 
 				if (this.$store.comparisonMode == false) {
 					this.targetPath();
 				}
+				this.$refs.Guides.init(this.graph.nodes);
 			}
-			this.$refs.Guides.init(this.graph.nodes);
 			// this.$refs.ToolTip.init(this.$parent.id)
 		},
 

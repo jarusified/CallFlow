@@ -359,6 +359,7 @@ export default {
 			this.$store.selectedIQRFactor = this.selectedIQRFactor;
 			this.$store.selectedRuntimeSortBy = this.selectedRuntimeSortBy;
 			this.$store.selectedNumOfClusters = this.selectedNumOfClusters;
+			this.$store.selectedMode = this.selectedMode
 
 
 			this.$store.datasetMap = {};
@@ -415,7 +416,7 @@ export default {
 			this.currentSingleCCTComponents = [this.$refs.SingleCCT];
 			this.currentSingleCallGraphComponents = [];
 			this.currentSingleSuperGraphComponents = [
-				this.$refs.SuperGraph,
+				this.$refs.EnsembleSuperGraph,
 				this.$refs.SingleHistogram,
 				this.$refs.RuntimeScatterplot,
 				// this.$refs.Function
@@ -493,7 +494,6 @@ export default {
 
 		// Feature: the Supernode hierarchy is automatically selected from the mean metric runtime.
 		sortModulesByMetric(attr) {
-			console.log(this.$store.modules)
 			let module_list = Object.keys(this.$store.modules["ensemble"]);
 
 			// Create a map for each dataset mapping the respective mean times.

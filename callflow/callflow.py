@@ -142,6 +142,8 @@ class CallFlow:
             # Process each graphframe.
             single_supergraphs[dataset_name].process_gf()
 
+            single_supergraphs[dataset_name].group_gf(group_by="module")
+
             # Write the entire graphframe into .callflow.
             single_supergraphs[dataset_name].write_gf("entire")
 
@@ -327,18 +329,19 @@ class CallFlow:
             else:
                 split_callee_module = ""
 
-            ensemble_super_graph = EnsembleSuperGraph(
-                supergraphs=self.supergraphs,
-                tag="ensemble",
-                path="group_path",
-                group_by_attr="module",
-                props=self.props,
-                construct_graph=True,
-                add_data=True,
-                reveal_callsites=reveal_callsites,
-                split_entry_module=split_entry_module,
-                split_callee_module=split_callee_module,
-            )
+            # ensemble_super_graph = EnsembleSuperGraph(
+            #     supergraphs=self.supergraphs,
+            #     tag="ensemble",
+            #     path="group_path",
+            #     group_by_attr="module",
+            #     props=self.props,
+            #     construct_graph=True,
+            #     add_data=True,
+            #     reveal_callsites=reveal_callsites,
+            #     split_entry_module=split_entry_module,
+            #     split_callee_module=split_callee_module,
+            # )
+            ensemble_super_graph = SingleSankey(supergraph=self.supergraphs[operation['dataset']], path="group_path")
             return ensemble_super_graph.agg_nxg
 
         # Not used.
