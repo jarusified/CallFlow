@@ -166,7 +166,7 @@ export default {
 		var socket = io.connect(this.server, { reconnect: false });
 		console.log(this.selectedMode)
 		this.$socket.emit("init", {
-			mode: this.selectedMode
+			mode: this.selectedMode,
 		});
 
 		EventHandler.$on("lasso_selection", () => {
@@ -268,7 +268,7 @@ export default {
 	},
 
 	methods: {
-		// Feature: Sortby the datasets and show the time. 
+		// Feature: Sortby the datasets and show the time.
 		sortDatasetsByAttr(datasets, attr) {
 			let ret = datasets.sort((a, b) => {
 				let x = 0, y = 0;
@@ -418,7 +418,7 @@ export default {
 				this.$refs.SuperGraph,
 				this.$refs.SingleHistogram,
 				this.$refs.RuntimeScatterplot,
-				this.$refs.Function
+				// this.$refs.Function
 			];
 
 			this.currentEnsembleCCTComponents = [this.$refs.EnsembleCCT];
@@ -491,12 +491,12 @@ export default {
 			this.targetColors = Object.keys(this.targetColorMap);
 		},
 
-		// Feature: the Supernode hierarchy is automatically selected from the mean metric runtime. 
+		// Feature: the Supernode hierarchy is automatically selected from the mean metric runtime.
 		sortModulesByMetric(attr) {
 			console.log(this.$store.modules)
 			let module_list = Object.keys(this.$store.modules["ensemble"]);
 
-			// Create a map for each dataset mapping the respective mean times. 
+			// Create a map for each dataset mapping the respective mean times.
 			let map = {};
 			for (let module_name of module_list) {
 				map[module_name] = this.$store.modules["ensemble"][module_name][this.$store.selectedMetric]["mean_time"];
@@ -630,7 +630,8 @@ export default {
 
 		reset() {
 			this.$socket.emit("init", {
-				caseStudy: this.selectedCaseStudy
+				mode: this.selectedMode,
+				dataset: this.$store.selectedTargetDataset
 			});
 		},
 
@@ -679,16 +680,6 @@ export default {
 			return modules;
 		},
 
-		updateCaseStudy() {
-			this.clearLocal();
-			console.log("[Update] Case study: ", this.selectedCaseStudy);
-			this.$socket.emit("init", {
-				caseStudy: this.selectedCaseStudy
-			});
-
-			this.init();
-		},
-
 		updateColors() {
 			this.clearLocal();
 			this.setupColors();
@@ -698,7 +689,8 @@ export default {
 		updateFormat() {
 			this.clearLocal();
 			this.$socket.emit("init", {
-				caseStudy: this.selectedCaseStudy
+				mode: this.selectedMode,
+				dataset: this.$store.selectedTargetDataset
 			});
 			this.init();
 		},

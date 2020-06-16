@@ -11,7 +11,8 @@ import json
 # ------------------------------------------------------------------------------
 # CallFlow imports
 import callflow
-from callflow import SuperGraph, EnsembleGraph, Render_CCT, EnsembleSuperGraph
+from callflow import SuperGraph, EnsembleGraph
+from callflow.layout import NodeLinkLayout, SingleSankey
 from callflow.modules import (
     EnsembleAuxiliary,
     ModuleHierarchy,
@@ -256,56 +257,37 @@ class CallFlow:
 
     def request_single(self, operation):
         """
-        TODO: Write individual functiosn to do this.
         Handles all the socket requests connected to Single CallFlow.
         """
-        LOGGER.info(f"[Single Mode] {operation}")
-        operation_tag = operation["name"]
+        _OPERATIONS = ["init", "reset", "auxiliary", "cct", "supergraph", "miniHistogram", "function"]
+        assert "name" in operation
+        assert operation["name"] in _OPERATIONS
 
-        if operation_tag == "init":
+        LOGGER.info(f"[Single Mode] {operation}")
+        operation_name = operation["name"]
+
+        if operation_name == "init":
             return self.props
 
-        if "groupBy" in operation:
-            LOGGER.info("Grouping by: {0}".format(operation["groupBy"]))
-        else:
-            operation["groupBy"] = "name"
+        elif operation_name == "auxiliary":
+            return self.supergraphs[operation["dataset"]].auxiliary_data
 
-        dataset = operation["dataset"]
+        elif operation_name == "supergraph":
+            single_supergraph = SingleSankey(supergraph=self.supergraphs[operation['dataset']], path="group_path")
+            return single_supergraph.nxg
 
-        LOGGER.info("The selected Dataset is {0}".format(dataset))
-
-        # Compare against the different operations
-        # TODO: Probably remove.
-        if operation_tag == "reset":
-            datasets = [dataset]
-            self.reProcess = True
-            self.states = self.pipeline(
-                datasets, operation["filterBy"], operation["filterPerc"]
-            )
-            self.reProcess = False
-            self.states = self.pipeline(datasets)
-            return {}
-
-        elif operation_tag == "auxiliary":
-            return self.supergraphs[dataset].auxiliary_data
-
-        elif operation_tag == "supergraph":
-            return self.supergraphs[dataset].gf.nxg
-
-        elif operation_tag == "mini-histogram":
+        elif operation_name == "mini-histogram":
             minihistogram = MiniHistogram(state)
             return minihistogram.result
 
-        elif operation_tag == "cct":
-            result = Render_CCT(
+        elif operation_name == "cct":
+            result = NodeLinkLayout(
                 supergraph=self.supergraphs[operation['dataset']],
-                #tag=operation["dataset"],
-                #props=self.props,
                 callsite_count=operation["functionsInCCT"],
             )
             return result.nxg
 
-        elif operation_tag == "function":
+        elif operation_name == "function":
             functionlist = FunctionList(state, operation["module"], operation["nid"])
             return functionlist.result
 
@@ -314,13 +296,13 @@ class CallFlow:
         TODO: Write individual functiosn to do this.
         Handles all the socket requests connected to Single CallFlow.
         """
-        operation_tag = operation["name"]
+        operation_name = operation["name"]
         datasets = self.props["dataset_names"]
 
-        if operation_tag == "init":
+        if operation_name == "init":
             return self.props
 
-        elif operation_tag == "ensemble_cct":
+        elif operation_name == "ensemble_cct":
             result = Render_CCT(
                 supergraph=self.supergraphs['ensemble'],
                 #tag="ensemble",
@@ -329,7 +311,7 @@ class CallFlow:
             )
             return result.nxg
 
-        elif operation_tag == "supergraph":
+        elif operation_name == "supergraph":
             if "reveal_callsites" in operation:
                 reveal_callsites = operation["reveal_callsites"]
             else:
@@ -360,7 +342,7 @@ class CallFlow:
             return ensemble_super_graph.agg_nxg
 
         # Not used.
-        elif operation_tag == "scatterplot":
+        elif operation_name == "scatterplot":
             assert False
             if operation["plot"] == "bland-altman":
                 state1 = self.states[operation["dataset"]]
@@ -375,7 +357,7 @@ class CallFlow:
             return ret
 
         # Not used.
-        elif operation_tag == "similarity":
+        elif operation_name == "similarity":
             assert False
             if operation["module"] == "all":
                 dirname = self.config.callflow_dir
@@ -394,11 +376,11 @@ class CallFlow:
                     self.similarities[dataset].append(union_similarity.result)
             return self.similarities
 
-        elif operation_tag == "hierarchy":
+        elif operation_name == "hierarchy":
             mH = ModuleHierarchy(self.supergraphs["ensemble"], operation["module"])
             return mH.result
 
-        elif operation_tag == "projection":
+        elif operation_name == "projection":
             self.similarities = {}
             # dirname = self.config.callflow_dir
             # name = self.config.runName
@@ -414,7 +396,7 @@ class CallFlow:
             return result.to_json(orient="columns")
 
         # Not used.
-        elif operation_tag == "run-information":
+        elif operation_name == "run-information":
             assert False
             ret = []
             for idx, state in enumerate(self.states):
@@ -424,7 +406,7 @@ class CallFlow:
 
         # TODO: need to handle re-processing case.
         # The commented code below was used to enable re-processing.
-        elif operation_tag == "auxiliary":
+        elif operation_name == "auxiliary":
             # print(f"Reprocessing: {operation['re-process']}")
             # aux = EnsembleAuxiliary(
             #     self.states,
@@ -446,7 +428,7 @@ class CallFlow:
 
             return self.supergraphs["ensemble"].auxiliary_data
 
-        elif operation_tag == "compare":
+        elif operation_name == "compare":
             compareDataset = operation["compareDataset"]
             targetDataset = operation["targetDataset"]
             if operation["selectedMetric"] == "Inclusive":

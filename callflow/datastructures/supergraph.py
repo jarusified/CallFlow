@@ -287,7 +287,8 @@ class SuperGraph (object):
 
     # ------------------------------------------------------------------------------
     #TODO: if this has any future, make this a static function
-    def _unused_write_similarity(self, datasets, states, type):
+    @staticmethod
+    def _unused_write_similarity(datasets, states, type):
         """
         # Write the pair-wise graph similarities into .callflow directory.
         """
@@ -402,7 +403,8 @@ class SuperGraph (object):
         self.name_time_exc_map = self.module_name_group_df["time"].max().to_dict()
 
     # --------------------------------------------------------------------------
-    def remove_cycles_in_paths(self, path):
+    @staticmethod
+    def remove_cycles_in_paths(path):
         ret = []
         moduleMapper = {}
         dataMap = {}
