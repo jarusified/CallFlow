@@ -17,9 +17,9 @@ from callflow import SuperGraph
 
 # ------------------------------------------------------------------------------
 # CCT Rendering class.
-class NodeLinkLayout():
+class NodeLinkLayout:
 
-    _COLUMNS = ['time (inc)', 'time', 'name', 'module']
+    _COLUMNS = ["time (inc)", "time", "name", "module"]
 
     def __init__(self, supergraph, callsite_count=50):
 
@@ -33,16 +33,16 @@ class NodeLinkLayout():
         self.timer = Timer()
 
         # Number of runs in the state.
-        self.runs = self.supergraph.gf.df['dataset'].unique()
+        self.runs = self.supergraph.gf.df["dataset"].unique()
 
         # Put the top callsites into a list.
-        callsites = self.supergraph.gf.get_top_by_attr(callsite_count, 'time (inc)')
+        callsites = self.supergraph.gf.get_top_by_attr(callsite_count, "time (inc)")
 
         # Filter out the callsites not in the list. (in a LOCAL copy)
         df = self.supergraph.gf.filter_by_name(callsites)
 
         with self.timer.phase(f"Creating CCT for ({self.runs})"):
-            self.nxg = NodeLinkLayout._create_nxg_from_paths(df['path'].tolist())
+            self.nxg = NodeLinkLayout._create_nxg_from_paths(df["path"].tolist())
 
         # Add node and edge attributes.
         with self.timer.phase(f"Add node and edge attributes."):
@@ -65,12 +65,16 @@ class NodeLinkLayout():
 
             for column in NodeLinkLayout._COLUMNS:
                 if column not in datamap:
-                   datamap[column] = {}
+                    datamap[column] = {}
 
                 if column == "time (inc)":
-                    datamap[column][callsite] = self.supergraph.name_time_inc_map[(module, callsite)]
+                    datamap[column][callsite] = self.supergraph.name_time_inc_map[
+                        (module, callsite)
+                    ]
                 elif column == "time":
-                    datamap[column][callsite] = self.supergraph.name_time_exc_map[(module, callsite)]
+                    datamap[column][callsite] = self.supergraph.name_time_exc_map[
+                        (module, callsite)
+                    ]
                 elif column == "name":
                     datamap[column][callsite] = callsite
                 elif column == "module":
@@ -87,7 +91,10 @@ class NodeLinkLayout():
             datamap = {}
             for callsite in self.nxg.nodes():
 
-                if callsite not in self.supergraph.target_module_callsite_map[run].keys():
+                if (
+                    callsite
+                    not in self.supergraph.target_module_callsite_map[run].keys()
+                ):
                     continue
 
                 module = self.supergraph.get_module_name(callsite)
@@ -98,12 +105,16 @@ class NodeLinkLayout():
                 for column in NodeLinkLayout._COLUMNS:
 
                     if column not in datamap:
-                       datamap[column] = {}
+                        datamap[column] = {}
 
                     if column == "time (inc)":
-                        datamap[callsite][column] = self.supergraph.target_module_time_inc_map[run][module]
+                        datamap[callsite][
+                            column
+                        ] = self.supergraph.target_module_time_inc_map[run][module]
                     elif column == "time":
-                        datamap[callsite][column] = self.supergraph.target_module_time_exc_map[run][module]
+                        datamap[callsite][
+                            column
+                        ] = self.supergraph.target_module_time_exc_map[run][module]
                     elif column == "module":
                         datamap[callsite][column] = module
                     elif column == "name":
@@ -126,19 +137,22 @@ class NodeLinkLayout():
 
                 tail, head = NodeLinkLayout._tailhead(edge, is_directed, orientation)
 
-                if edge not in edge_counter:    edge_counter[edge] = 0
+                if edge not in edge_counter:
+                    edge_counter[edge] = 0
 
-                if tail == head:                edge_counter[edge] += 1
-                else:                           edge_counter[edge] = 1
+                if tail == head:
+                    edge_counter[edge] += 1
+                else:
+                    edge_counter[edge] = 1
 
         # ----------------------------------------------------------------------
-        nx.set_edge_attributes(self.nxg, name='count', values=edge_counter)
+        nx.set_edge_attributes(self.nxg, name="count", values=edge_counter)
 
     # --------------------------------------------------------------------------
     # --------------------------------------------------------------------------
     @staticmethod
     def _find_cycle(G, source=None, orientation=None):
-        '''
+        """
         if not G.is_directed() or orientation in (None, "original"):
 
             def tailhead(edge):
@@ -155,7 +169,7 @@ class NodeLinkLayout():
                 if edge[-1] == "reverse":
                     return edge[1], edge[0]
                 return edge[:2]
-        '''
+        """
         explored = set()
         cycle = []
         count = 0
@@ -194,12 +208,16 @@ class NodeLinkLayout():
                             active_nodes = {tail}
                             break
                         else:
-                            popped_head = NodeLinkLayout._tailhead(popped_edge, is_directed, orientation)[1]
+                            popped_head = NodeLinkLayout._tailhead(
+                                popped_edge, is_directed, orientation
+                            )[1]
                             active_nodes.remove(popped_head)
 
                         if edges:
                             # how can you pass a single element into tailhead?
-                            last_head = NodeLinkLayout._tailhead(edges[-1], is_directed, orientation)[1]
+                            last_head = NodeLinkLayout._tailhead(
+                                edges[-1], is_directed, orientation
+                            )[1]
                             if tail == last_head:
                                 break
                 edges.append(edge)
@@ -249,9 +267,9 @@ class NodeLinkLayout():
             callsites = make_tuple(path)
             plen = len(callsites)
 
-            for j in range(plen-1):
+            for j in range(plen - 1):
                 source = callflow.utils.sanitize_name(callsites[j])
-                target = callflow.utils.sanitize_name(callsites[j+1])
+                target = callflow.utils.sanitize_name(callsites[j + 1])
 
                 if not nxg.has_edge(source, target):
                     nxg.add_edge(source, target)
@@ -266,11 +284,14 @@ class NodeLinkLayout():
         assert isinstance(edge, tuple)
         assert len(edge) == 2
         assert isinstance(is_directed, bool)
-        #assert isinstance(orientation, (NoneType,str))
+        # assert isinstance(orientation, (NoneType,str))
 
-        if not is_directed or orientation in [None, 'original']: return edge[0], edge[1]
-        elif orientation == "reverse":                           return edge[1], edge[0]
-        elif orientation == "ignore" and edge[-1] == "reverse":  return edge[1], edge[0]
+        if not is_directed or orientation in [None, "original"]:
+            return edge[0], edge[1]
+        elif orientation == "reverse":
+            return edge[1], edge[0]
+        elif orientation == "ignore" and edge[-1] == "reverse":
+            return edge[1], edge[0]
         return edge[0], edge[1]
 
     # --------------------------------------------------------------------------

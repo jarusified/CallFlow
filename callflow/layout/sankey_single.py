@@ -18,14 +18,11 @@ LOGGER = callflow.get_logger(__name__)
 
 # ------------------------------------------------------------------------------
 # Single Super Graph class.
-class SingleSankey():
+class SingleSankey:
 
     _COLUMNS = ["time (inc)", "module", "name", "time", "type", "module", "actual_time"]
-    def __init__(
-        self,
-        supergraph={},
-        path="path"
-    ):
+
+    def __init__(self, supergraph={}, path="path"):
         assert isinstance(supergraph, SuperGraph)
         assert isinstance(path, str)
         assert path in ["path", "group_path", "component_path"]
@@ -39,7 +36,9 @@ class SingleSankey():
         LOGGER.info("Creating the Single sankey for {0}.".format(self.supergraph.tag))
 
         with self.timer.phase("Construct Graph"):
-            self.nxg = SingleSankey._create_nxg_from_paths(self.supergraph.gf.df[self.path].unique().tolist())
+            self.nxg = SuperGraph._create_nxg_from_paths(
+                self.supergraph.gf.df[self.path].unique().tolist()
+            )
 
         with self.timer.phase("Add graph attributes"):
             self._add_node_attributes()
@@ -47,38 +46,6 @@ class SingleSankey():
 
         LOGGER.debug(self.timer)
 
-    @staticmethod
-    def _create_nxg_from_paths(paths):
-        print(paths)
-        assert isinstance(paths, list)
-        from ast import literal_eval as make_tuple
-
-        nxg = nx.DiGraph()
-
-        # go over all path
-        for idx, path in enumerate(paths):
-
-            # go over the callsites in this path
-            callsites = make_tuple(path)
-            plen = len(callsites)
-
-            if plen >= 2:
-                source_module = callsites[-2].split("=")[0]
-                target_module = callsites[-1].split("=")[0]
-
-                source_name = callsites[-2].split("=")[1]
-                target_name = callsites[-1].split("=")[1]
-
-                nxg.add_edge(
-                    source_module,
-                    target_module,
-                    attr_dict={
-                        "source_callsite": source_name,
-                        "target_callsite": target_name,
-                    },
-                )
-
-        return nxg
     # --------------------------------------------------------------------------
     def _add_node_attributes(self):
 
@@ -113,7 +80,7 @@ class SingleSankey():
             source_name = edge[2]["attr_dict"]["source_callsite"]
             target_name = edge[2]["attr_dict"]["target_callsite"]
 
-            source_inc =
+            # source_inc =
             target_inc = self.df.loc[(self.df["name"] == target_name)][
                 "time (inc)"
             ].max()

@@ -19,7 +19,7 @@ LOGGER = callflow.get_logger(__name__)
 
 # ------------------------------------------------------------------------------
 # Ensemble Super Graph class.
-class EnsembleSankey():
+class EnsembleSankey:
     def __init__(
         self,
         supergraphs={},

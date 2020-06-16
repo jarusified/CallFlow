@@ -10,7 +10,6 @@ import json
 import copy
 import pandas as pd
 import networkx as nx
-#from networkx.readwrite import json_graph
 from ast import literal_eval as make_list
 
 # ------------------------------------------------------------------------------
@@ -24,11 +23,10 @@ LOGGER = callflow.get_logger(__name__)
 
 # ------------------------------------------------------------------------------
 # SuperGraph Class
-class SuperGraph (object):
+class SuperGraph(object):
 
     # --------------------------------------------------------------------------
-    _FILENAMES = {'params': 'env_params.txt',
-                 'aux':     'auxiliary_data.json'}
+    _FILENAMES = {"params": "env_params.txt", "aux": "auxiliary_data.json"}
 
     # --------------------------------------------------------------------------
     # --------------------------------------------------------------------------
@@ -75,11 +73,11 @@ class SuperGraph (object):
             self.gf = callflow.GraphFrame()
             self.gf.read(path)
 
-            #parameters = SuperGraph.read_parameters(path)   #TODO: where is this supposed to go?
+            # parameters = SuperGraph.read_parameters(path)   #TODO: where is this supposed to go?
             self.auxiliary_data = SuperGraph.read_auxiliary_data(path)
 
-            #self.create_gf(data=data)
-            #self.auxiliary_data = self.read_auxiliary_data()
+            # self.create_gf(data=data)
+            # self.auxiliary_data = self.read_auxiliary_data()
 
             with self.timer.phase(f"Creating the data maps."):
                 self.cct_df = self.gf.df[self.gf.df["name"].isin(self.gf.nxg.nodes())]
@@ -87,13 +85,12 @@ class SuperGraph (object):
                 for dataset in self.props["dataset_names"]:
                     self.create_target_maps(dataset)
 
-
     # --------------------------------------------------------------------------
     def get_module_name(self, callsite):
-        if callsite in self.props['callsite_module_map']:
-            return self.props['callsite_module_map'][callsite]
-        #else:
-        return self.gf.lookup_with_name(callsite)['module'].unique()[0]
+        if callsite in self.props["callsite_module_map"]:
+            return self.props["callsite_module_map"][callsite]
+        # else:
+        return self.gf.lookup_with_name(callsite)["module"].unique()[0]
 
     def _remove__getter(self):
         """
@@ -130,29 +127,33 @@ class SuperGraph (object):
         """
         if self.props["format"][self.tag] == "hpctoolkit":
 
-            process = (Process.Builder(self.gf, self.tag)
-                              .add_path()
-                              .create_name_module_map()
-                              .add_callers_and_callees()
-                              .add_dataset_name()
-                              .add_imbalance_perc()
-                              .add_module_name_hpctoolkit()
-                              .add_vis_node_name()
-                              .build())
+            process = (
+                Process.Builder(self.gf, self.tag)
+                .add_path()
+                .create_name_module_map()
+                .add_callers_and_callees()
+                .add_dataset_name()
+                .add_imbalance_perc()
+                .add_module_name_hpctoolkit()
+                .add_vis_node_name()
+                .build()
+            )
 
         elif self.props["format"][self.tag] == "caliper_json":
 
-            process = (Process.Builder(self.gf, self.tag)
-                              .add_time_columns()
-                              .add_rank_column()
-                              .add_callers_and_callees()
-                              .add_dataset_name()
-                              .add_imbalance_perc()
-                              .add_module_name_caliper(self.props["callsite_module_map"])
-                              .create_name_module_map()
-                              .add_vis_node_name()
-                              .add_path()
-                              .build())
+            process = (
+                Process.Builder(self.gf, self.tag)
+                .add_time_columns()
+                .add_rank_column()
+                .add_callers_and_callees()
+                .add_dataset_name()
+                .add_imbalance_perc()
+                .add_module_name_caliper(self.props["callsite_module_map"])
+                .create_name_module_map()
+                .add_vis_node_name()
+                .add_path()
+                .build()
+            )
 
         self.gf = process.gf
 
@@ -167,26 +168,12 @@ class SuperGraph (object):
         """
         Filter the graphframe.
         """
-        self.gf = Filter(gf=self.gf, mode=mode,
-                            filter_by=self.props["filter_by"],
-                            filter_perc=self.props["filter_perc"]).gf
-
-    # --------------------------------------------------------------------------
-    #TODO: not sure what is going on here
-    def ensemble_gf(self, supergraphs):
-        EnsembleGraph(self.props, "ensemble",
-                        mode="process", supergraphs=single_supergraphs)
-
-    def ensemble_auxiliary(self, datasets, MPIBinCount=20,
-                                          RunBinCount=20, process=True, write=True):
-        EnsembleAuxiliary(self.gf, datasets=datasets, props=self.props,
-                                   MPIBinCount=MPIBinCount, RunBinCount=RunBinCount,
-                                   process=process, write=write)
-
-    #TODO: not sure what is going on here
-    def single_auxiliary(self, dataset="", binCount=20, process=True):
-        SingleAuxiliary(self.gf, dataset=dataset, props=self.props,
-                                 MPIBinCount=binCount, process=process)
+        self.gf = Filter(
+            gf=self.gf,
+            mode=mode,
+            filter_by=self.props["filter_by"],
+            filter_perc=self.props["filter_perc"],
+        ).gf
 
     # --------------------------------------------------------------------------
     def _remove_read_gf(self, read_parameter=True, read_graph=False):
@@ -263,7 +250,7 @@ class SuperGraph (object):
     @staticmethod
     def read_parameters(path):
 
-        fname = os.path.join(path, SuperGraph._FILENAMES['params'])
+        fname = os.path.join(path, SuperGraph._FILENAMES["params"])
         LOGGER.info(f"[Read] {fname}")
 
         parameters = None
@@ -278,7 +265,7 @@ class SuperGraph (object):
     @staticmethod
     def read_auxiliary_data(path):
 
-        fname = os.path.join(path,  SuperGraph._FILENAMES['aux'])
+        fname = os.path.join(path, SuperGraph._FILENAMES["aux"])
         LOGGER.info(f"[Read] {fname}")
         data = None
         with open(fname, "r") as fptr:
@@ -286,7 +273,7 @@ class SuperGraph (object):
         return data
 
     # ------------------------------------------------------------------------------
-    #TODO: if this has any future, make this a static function
+    # TODO: if this has any future, make this a static function
     @staticmethod
     def _unused_write_similarity(datasets, states, type):
         """
@@ -308,29 +295,33 @@ class SuperGraph (object):
             json.dump(ret, json_file)
 
     # --------------------------------------------------------------------------
-    def print_information(self):
-        LOGGER.info("Modules: {0}".format(self.gf.df["module"].unique()))
-        LOGGER.info("Top 10 Inclusive time: ")
-        top = 10
-        rank_df = self.gf.df.groupby(["name", "nid"]).mean()
-        top_inclusive_df = rank_df.nlargest(top, "time (inc)", keep="first")
+    @staticmethod
+    def print_information(gf, top_n_callsites=10):
+        # Print modules in the call graph.
+        LOGGER.info("Modules: {0}".format(gf.df["module"].unique()))
+
+        # Print top "N" callsites by inclusive time.
+        LOGGER.info(f"Top {top_n_callsites} Inclusive time: ")
+        rank_df = gf.df.groupby(["name", "nid"]).mean()
+        top_inclusive_df = rank_df.nlargest(top_n_callsites, "time (inc)", keep="first")
         for name, row in top_inclusive_df.iterrows():
             LOGGER.info("{0} [{1}]".format(name, row["time (inc)"]))
 
-        LOGGER.info("Top 10 Enclusive time: ")
-        top_exclusive_df = rank_df.nlargest(top, "time", keep="first")
+        # Print top "N" callsites by exclusive time.
+        LOGGER.info(f"Top {top_n_callsites} Enclusive time: ")
+        top_exclusive_df = rank_df.nlargest(top_n_callsites, "time", keep="first")
         for name, row in top_exclusive_df.iterrows():
             LOGGER.info("{0} [{1}]".format(name, row["time"]))
 
-        for node in self.gf.nxg.nodes(data=True):
+        # Print nodes in the nxg. 
+        LOGGER.info("Nodes in the CallGraph: {0}".format(len(gf.nxg.nodes)))
+        for node in gf.nxg.nodes(data=True):
             LOGGER.info("Node: {0}".format(node))
-        for edge in self.gf.nxg.edges():
-            LOGGER.info("Edge: {0}".format(edge))
 
-        LOGGER.info("Nodes in the tree: {0}".format(len(self.gf.nxg.nodes)))
-        LOGGER.info("Edges in the tree: {0}".format(len(self.gf.nxg.edges)))
-        LOGGER.info("Is it a tree? : {0}".format(nx.is_tree(self.gf.nxg)))
-        LOGGER.info("Flow hierarchy: {0}".format(nx.flow_hierarchy(self.gf.nxg)))
+        # Pring edges in the nxg.
+        LOGGER.info("Edges in the CallGraph: {0}".format(len(gf.nxg.edges)))
+        for edge in gf.nxg.edges():
+            LOGGER.info("Edge: {0}".format(edge))
 
     # --------------------------------------------------------------------------
     # Utilities.
@@ -403,6 +394,99 @@ class SuperGraph (object):
         self.name_time_exc_map = self.module_name_group_df["time"].max().to_dict()
 
     # --------------------------------------------------------------------------
+    @staticmethod
+    def _create_nxg_from_paths_column(df, path):
+        assert isinstance(df, pd.DataFrame)
+        assert path in df.columns
+
+        paths_df = df.groupby(["name", path])
+
+        for (callsite, path), path_df in paths_df:
+            path_list = SuperGraph._remove_cycles_in_paths(path)
+            for callsite_idx, callsite in enumerate(path_list):
+                if callsite_idx != len(path_list) - 1:
+                    source = path_list[callsite_idx]
+                    target = path_list[callsite_idx + 1]
+
+                    source_module = source["module"]
+                    target_module = target["module"]
+
+                    source_callsite = source["callsite"]
+                    target_callsite = target["callsite"]
+
+                    source_df = self.module_name_group_df.get_group(
+                        (source_module, source_callsite)
+                    )
+                    target_df = self.module_name_group_df.get_group(
+                        (target_module, target_callsite)
+                    )
+
+                    has_caller_edge = self.agg_nxg.has_edge(
+                        source_module, target_module
+                    )
+                    has_callback_edge = self.agg_nxg.has_edge(
+                        target_module, source_module
+                    )
+                    has_cct_edge = self.cct.has_edge(source_callsite, target_callsite)
+
+                    source_weight = source_df["time (inc)"].max()
+                    target_weight = target_df["time (inc)"].max()
+
+                    source_dataset = source_df["dataset"].unique().tolist()
+                    target_dataset = target_df["dataset"].unique().tolist()
+
+                    if has_callback_edge:
+                        edge_type = "callback"
+                        weight = 0
+                    else:
+                        edge_type = "caller"
+
+                    if source_callsite == "119:MPI_Finalize":
+                        source_module = "osu_bcast"
+
+                    edge_dict = {
+                        "source_callsite": source_callsite,
+                        "target_callsite": target_callsite,
+                        "edge_type": edge_type,
+                        "weight": target_weight,
+                        "source_dataset": source_dataset,
+                        "target_dataset": target_dataset,
+                    }
+
+                    node_dict = {"type": "super-node"}
+
+                    # If the module-module edge does not exist.
+                    if (
+                        not has_caller_edge
+                        and not has_cct_edge
+                        and not has_callback_edge
+                    ):
+                        print(
+                            f"Add {edge_type} edge for : {source_module}--{target_module}"
+                        )
+                        self.agg_nxg.add_node(source_module, attr_dict=node_dict)
+                        self.agg_nxg.add_node(target_module, attr_dict=node_dict)
+                        self.agg_nxg.add_edge(
+                            source_module, target_module, attr_dict=[edge_dict]
+                        )
+
+                    elif not has_cct_edge and not has_callback_edge:
+                        # print(f"Edge already exists for : {source_module}--{target_module}")
+                        edge_data = self.agg_nxg.get_edge_data(
+                            *(source_module, target_module)
+                        )
+                        self.agg_nxg[source_module][target_module]["attr_dict"].append(
+                            edge_dict
+                        )
+                        # print(agg_nxg[source_module][target_module])
+
+                    if not has_cct_edge:
+                        self.cct.add_edge(
+                            source_callsite,
+                            target_callsite,
+                            attr_dict={"weight": target_weight},
+                        )
+
     @staticmethod
     def remove_cycles_in_paths(path):
         ret = []
@@ -525,21 +609,6 @@ class SuperGraph (object):
         return hierarchy
 
     # ------------------------------------------------------------------------------
-    # Add paths according to what input is provided.
-    # Should be implemented by the child classes.
-    def add_paths(self, path):
-        assert False
-        pass
-
-    def add_node_attributes(self):
-        assert False
-        pass
-
-    def add_edge_attribtues(self):
-        assert False
-        pass
-
-    # ------------------------------------------------------------------------------
     # Reveal a callsite's path
     # TODO: not tested. Could break.
     def create_source_targets(self, component_path):
@@ -583,7 +652,7 @@ class SuperGraph (object):
         return paths
 
     def add_reveal_paths(self, reveal_callsites):
-        #TODO: this will fail because there is no self.supergraph
+        # TODO: this will fail because there is no self.supergraph
         assert False
         paths = self.callsite_paths(reveal_callsites)
 
@@ -620,12 +689,8 @@ class SuperGraph (object):
                     edge_type = "normal"
 
                     print(f"Adding edge: {source_callsite}, {target_callsite}")
-                    self.gf.nxg.add_node(
-                        source, attr_dict={"type": source_node_type}
-                    )
-                    self.gf.nxg.add_node(
-                        target, attr_dict={"type": target_node_type}
-                    )
+                    self.gf.nxg.add_node(source, attr_dict={"type": source_node_type})
+                    self.gf.nxg.add_node(target, attr_dict={"type": target_node_type})
                     self.gf.nxg.add_edge(
                         source,
                         target,
@@ -717,9 +782,7 @@ class SuperGraph (object):
             if len(source_edges_to_remove) != 0:
                 for edge in source_edges_to_remove:
                     if self.gf.nxg.has_edge(edge["source"], edge["target"]):
-                        self.gf.nxg.remove_edge(
-                            (edge["source"], edge["target"])
-                        )
+                        self.gf.nxg.remove_edge((edge["source"], edge["target"]))
                     self.gf.nxg.add_node(
                         reveal_module + "=" + edge["source_callsite"],
                         attr_dict={"type": "component-node"},
@@ -742,9 +805,7 @@ class SuperGraph (object):
             if len(target_edges_to_remove) != 0:
                 for edge in target_edges_to_remove:
                     if self.gf.nxg.has_edge(edge["source"], edge["target"]):
-                        self.gf.nxg.remove_edge(
-                            edge["source"], edge["target"]
-                        )
+                        self.gf.nxg.remove_edge(edge["source"], edge["target"])
                     self.gf.nxg.add_node(
                         reveal_module + "=" + edge["target_callsite"],
                         attr_dict={"type": "component-node"},
