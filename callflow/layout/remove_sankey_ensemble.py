@@ -81,7 +81,7 @@ class EnsembleSankey:
             self.add_edge_attributes()
         print(self.timer)
 
-    def add_paths(self, path):
+    def remove_add_paths(self, path):
         paths_df = self.group_df.groupby(["name", "group_path"])
 
         for (callsite, path_str), path_df in paths_df:
@@ -202,7 +202,7 @@ class EnsembleSankey:
             ret[(edge[0], edge[1])] = edge[2]["attr_dict"][0]["edge_type"]
         return ret
 
-    def flows(self, graph):
+    def remove_flows(self, graph):
         self.weight_map = {}
         for edge in self.agg_nxg.edges(data=True):
             if (edge[0], edge[1]) not in self.weight_map:

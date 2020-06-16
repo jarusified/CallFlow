@@ -115,7 +115,7 @@ export default {
 		selectedOutlierBand: 4,
 		defaultCallSite: "<program root>",
 		modes: ["Ensemble", "Single"],
-		selectedMode: "Single",
+		selectedMode: "Ensemble",
 		// Presentation mode variables
 		exhibitModes: ["Presentation", "Default"],
 		selectedExhibitMode: "Default",
@@ -269,6 +269,13 @@ export default {
 
 	methods: {
 		// Feature: Sortby the datasets and show the time.
+		formatRuntimeWithoutUnits(val) {
+			let format = d3.format('.2')
+			let ret = format(val)
+			return ret
+		},
+
+		// Feature: Sortby the datasets and show the time.
 		sortDatasetsByAttr(datasets, attr) {
 			let ret = datasets.sort((a, b) => {
 				let x = 0, y = 0;
@@ -369,7 +376,7 @@ export default {
 
 			this.$store.contextMenu = this.contextMenu;
 
-			this.$store.selectedSuperNodePositionMode = "Minimal edge crossing";
+			this.$store.selectedSuperNodePositionMode = "Minimal edge  crossing";
 
 		},
 

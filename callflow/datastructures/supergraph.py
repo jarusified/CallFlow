@@ -48,16 +48,16 @@ class SuperGraph(object):
         # Mode is either process or render.
         self.mode = mode
 
-        # Variables used by `create_target_maps`.
-        self.target_df = {}
-        self.target_modules = {}
-        self.target_module_group_df = {}
-        self.target_module_name_group_df = {}
-        self.target_module_callsite_map = {}
-        self.target_module_time_inc_map = {}
-        self.target_module_time_exc_map = {}
-        self.target_name_time_inc_map = {}
-        self.target_name_time_exc_map = {}
+        # # Variables used by `create_target_maps`.
+        # self.target_df = {}
+        # self.target_modules = {}
+        # self.target_module_group_df = {}
+        # self.target_module_name_group_df = {}
+        # self.target_module_callsite_map = {}
+        # self.target_module_time_inc_map = {}
+        # self.target_module_time_exc_map = {}
+        # self.target_name_time_inc_map = {}
+        # self.target_name_time_exc_map = {}
         self.projection_data = {}
 
         self.create_gf()
@@ -80,11 +80,11 @@ class SuperGraph(object):
             # self.create_gf(data=data)
             # self.auxiliary_data = self.read_auxiliary_data()
 
-            with self.timer.phase(f"Creating the data maps."):
-                self.cct_df = self.gf.df[self.gf.df["name"].isin(self.gf.nxg.nodes())]
-                self.create_ensemble_maps()
-                for dataset in self.props["dataset_names"]:
-                    self.create_target_maps(dataset)
+            # with self.timer.phase(f"Creating the data maps."):
+            #     self.cct_df = self.gf.df[self.gf.df["name"].isin(self.gf.nxg.nodes())]
+            #     self.create_ensemble_maps()
+            #     for dataset in self.props["dataset_names"]:
+            #         self.create_target_maps(dataset)
 
     # --------------------------------------------------------------------------
     def get_module_name(self, callsite):
@@ -253,7 +253,6 @@ class SuperGraph(object):
                                    MPIBinCount=MPIBinCount, RunBinCount=RunBinCount,
                                    process=process, write=write)
 
-    #TODO: not sure what is going on here
     def single_auxiliary(self, dataset="", binCount=20, process=True):
         SingleAuxiliary(self.gf, dataset=dataset, props=self.props,
                                  MPIBinCount=binCount, process=process)
@@ -306,50 +305,9 @@ class SuperGraph(object):
         with open(similarity_filepath, "w") as json_file:
             json.dump(ret, json_file)
 
-    # --------------------------------------------------------------------------
-    @staticmethod
-    def print_information(gf, top_n_callsites=10):
-        # Print modules in the call graph.
-        LOGGER.info("Modules: {0}".format(gf.df["module"].unique()))
-
-        # Print top "N" callsites by inclusive time.
-        LOGGER.info(f"Top {top_n_callsites} Inclusive time: ")
-        rank_df = gf.df.groupby(["name", "nid"]).mean()
-        top_inclusive_df = rank_df.nlargest(top_n_callsites, "time (inc)", keep="first")
-        for name, row in top_inclusive_df.iterrows():
-            LOGGER.info("{0} [{1}]".format(name, row["time (inc)"]))
-
-        # Print top "N" callsites by exclusive time.
-        LOGGER.info(f"Top {top_n_callsites} Enclusive time: ")
-        top_exclusive_df = rank_df.nlargest(top_n_callsites, "time", keep="first")
-        for name, row in top_exclusive_df.iterrows():
-            LOGGER.info("{0} [{1}]".format(name, row["time"]))
-
-        # Print nodes in the nxg.
-        LOGGER.info("Nodes in the CallGraph: {0}".format(len(gf.nxg.nodes)))
-        for node in gf.nxg.nodes(data=True):
-            LOGGER.info("Node: {0}".format(node))
-
-        # Pring edges in the nxg.
-        LOGGER.info("Edges in the CallGraph: {0}".format(len(gf.nxg.edges)))
-        for edge in gf.nxg.edges():
-            LOGGER.info("Edge: {0}".format(edge))
-
-    # --------------------------------------------------------------------------
-    # Utilities.
-    # TODO: should this be in callflow.GraphFrame?
-    def get_top_n_callsites_by_attr(self, count, sort_attr):
-        """
-        Returns an array of callsites (sorted by `sort_attr`)
-        """
-        df = self.gf.df.groupby(["name"]).mean()
-        df = df.sort_values(by=[sort_attr], ascending=False)
-        df = df.nlargest(count, sort_attr)
-        return df.index.values.tolist()
-
-    # --------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------
     # NetworkX graph utility functions.
-    def create_target_maps(self, dataset):
+    def remove_create_target_maps(self, dataset):
         # Reduce the entire_df to respective target dfs.
         self.target_df[dataset] = self.gf.df.loc[self.gf.df["dataset"] == dataset]
 
@@ -387,7 +345,7 @@ class SuperGraph(object):
             self.target_module_name_group_df[dataset]["time"].max().to_dict()
         )
 
-    def create_ensemble_maps(self):
+    def remove_create_ensemble_maps(self):
         self.modules = self.gf.df["module"].unique()
 
         self.module_name_group_df = self.gf.df.groupby(["module", "name"])
@@ -405,187 +363,9 @@ class SuperGraph(object):
         self.module_time_exc_map = self.module_group_df["time"].max().to_dict()
         self.name_time_exc_map = self.module_name_group_df["time"].max().to_dict()
 
-    # --------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
-
-    @staticmethod
-    def flows(nxg):
-        flow_mapping = {}
-        for edge in nxg.edges(data=True):
-            if (edge[0], edge[1]) not in flow_mapping:
-                flow_mapping[(edge[0], edge[1])] = 0
-
-            attr_dict = edge[2]["attr_dict"]
-            for d in attr_dict:
-                flow_mapping[(edge[0], edge[1])] += d["weight"]
-
-        ret = {}
-        for edge in nxg.edges(data=True):
-            edge_tuple = (edge[0], edge[1])
-            if edge_tuple not in flow_mapping:
-                # Check if it s a reveal edge
-                attr_dict = edge[2]["attr_dict"]
-                if attr_dict["edge_type"] == "reveal_edge":
-                    flow_mapping[edge_tuple] = attr_dict["weight"]
-                    ret[edge_tuple] = flow_mapping[edge_tuple]
-                else:
-                    ret[edge_tuple] = 0
-            else:
-                ret[edge_tuple] = flow_mapping[edge_tuple]
-
-        return ret
-
-    @staticmethod
-    def module_time(group_df=pd.DataFrame([]), module_callsite_map={}, module=""):
-        exc_time_sum = 0
-        inc_time_max = 0
-        for callsite in module_callsite_map[module]:
-            callsite_df = group_df.get_group((module, callsite))
-            max_inc_time = callsite_df["time (inc)"].max()
-            inc_time_max = max(inc_time_max, max_inc_time)
-            max_exc_time = callsite_df["time"].max()
-            exc_time_sum += max_exc_time
-        return {"Inclusive": inc_time_max, "Exclusive": exc_time_sum}
-
-    @staticmethod
-    def callsite_time(group_df=pd.DataFrame([]), module="", callsite=""):
-        callsite_df = group_df.get_group((module, callsite))
-        max_inc_time = callsite_df["time (inc)"].max()
-        max_exc_time = callsite_df["time"].max()
-
-        return {"Inclusive": max_inc_time, "Exclusive": max_exc_time}
-
-    @staticmethod
-    def ensemble_map(df, nxg, columns=[]):
-        assert isinstance(df, pd.DataFrame)
-        assert isinstance(nxg, nx.DiGraph)
-        ret = {}
-
-        module_group_df = df.groupby(["module"])
-        module_name_group_df = df.groupby(["module", "name"])
-
-        module_callsite_map = module_group_df["name"].unique().to_dict()
-
-        module_time_inc_map = module_group_df["time (inc)"].max().to_dict()
-        module_time_exc_map = module_group_df["time"].max().to_dict()
-
-        name_time_inc_map = module_name_group_df["time (inc)"].max().to_dict()
-        name_time_exc_map = module_name_group_df["time"].max().to_dict()
-
-        # loop through the nodes
-        for node in nxg.nodes(data=True):
-            node_name = node[0]
-            node_dict = node[1]["attr_dict"]
-
-            if node_dict["type"] == "component-node":
-                module = node_name.split("=")[0]
-                callsite = node_name.split("=")[1]
-                actual_time = SuperGraph.callsite_time(group_df=module_name_group_df, module=module, callsite=callsite)
-                time_inc = name_time_inc_map[(module, callsite)]
-                time_exc = name_time_exc_map[(module, callsite)]
-
-            elif node_dict["type"] == "super-node":
-                module = node_name
-                callsite = module_callsite_map[module].tolist()
-                actual_time = SuperGraph.module_time(group_df=module_name_group_df, module_callsite_map=module_callsite_map, module=module)
-
-                time_inc = module_time_inc_map[module]
-                time_exc = module_time_exc_map[module]
-
-            for column in columns:
-                if column not in ret:
-                    ret[column] = {}
-
-                if column == "time (inc)":
-                    ret[column][node_name] = time_inc
-
-                elif column == "time":
-                    ret[column][node_name] = time_exc
-
-                elif column == "actual_time":
-                    ret[column][node_name] = actual_time
-
-                elif column == "module":
-                    ret[column][node_name] = module
-
-                elif column == "name":
-                    ret[column][node_name] = callsite
-
-                elif column == "type":
-                    ret[column][node_name] = node_dict["type"]
-
-        return ret
-
-    @staticmethod
-    def dataset_map(df=pd.DataFrame([]), nxg=nx.DiGraph(), columns=[], tag=""):
-        ret = {}
-
-        # Reduce the entire_df to respective target dfs.
-        target_df = df.loc[df["dataset"] == tag]
-
-        # Unique modules in the target run
-        target_modules = target_df["module"].unique()
-
-         # Group the dataframe in two ways.
-        # 1. by module
-        # 2. by module and callsite
-        target_module_group_df = target_df.groupby(["module"])
-        target_module_name_group_df = target_df.groupby(["module", "name"])
-
-        # Module map for target run {'module': [Array of callsites]}
-        target_module_callsite_map = target_module_group_df["name"].unique().to_dict()
-
-        # Inclusive time maps for the module level and callsite level.
-        target_module_time_inc_map = target_module_group_df["time (inc)"].max().to_dict()
-        target_name_time_inc_map = target_module_name_group_df["time (inc)"].max().to_dict()
-
-        # Exclusive time maps for the module level and callsite level.
-        target_module_time_exc_map = target_module_group_df["time"].max().to_dict()
-        target_name_time_exc_map = target_module_name_group_df["time"].max().to_dict()
-
-        for node in nxg.nodes(data=True):
-            node_name = node[0]
-            node_dict = node[1]["attr_dict"]
-            if node_name in target_module_callsite_map.keys():
-                if node_dict["type"] == "component-node":
-                    module = node_name.split("=")[0]
-                    callsite = node_name.split("=")[1]
-                    actual_time = SuperGraph.callsite_time(group_df=target_module_group_df,module=module, callsite=callsite)
-                    time_inc = target_name_time_inc_map[(module, callsite)]
-                    time_exc = target_name_time_exc_map[(module, callsite)]
-
-                elif node_dict["type"] == "super-node":
-                    module = node_name
-                    callsite = target_module_callsite_map[module].tolist()
-                    actual_time = SuperGraph.module_time(group_df=target_module_name_group_df,module_callsite_map=target_module_callsite_map, module=module)
-
-                    time_inc = target_module_time_inc_map[module]
-                    time_exc = target_module_time_exc_map[module]
-
-                if node_name not in ret:
-                    ret[node_name] = {}
-
-                for column in columns:
-                    if column == "time (inc)":
-                        ret[node_name][column] = time_inc
-
-                    elif column == "time":
-                        ret[node_name][column] = time_exc
-
-                    elif column == "module":
-                        ret[node_name][column] = module
-
-                    elif column == "actual_time":
-                        ret[node_name][column] = actual_time
-
-                    elif column == "name":
-                        ret[node_name][column] = callsite
-
-                    elif column == "type":
-                        ret[node_name][column] = node_dict["type"]
-
-        return ret
-    # --------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Module hierarchy.
     # TODO: we might have to delete the module hierarchy file in modules later.
     # TODO: This might fail.

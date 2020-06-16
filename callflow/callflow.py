@@ -12,7 +12,7 @@ import json
 # CallFlow imports
 import callflow
 from callflow import SuperGraph, EnsembleGraph
-from callflow.layout import NodeLinkLayout, SingleSankey
+from callflow.layout import NodeLinkLayout, SankeyLayout
 from callflow.modules import (
     EnsembleAuxiliary,
     ModuleHierarchy,
@@ -43,8 +43,8 @@ class CallFlow:
         # Based on option, either process into .callflow or read from .callflow.
         if process:
             self._create_dot_callflow_folder()
-            if ensemble:    self._process_ensemble()
-            else:           self._process_single()
+            if ensemble:    self._process_ensemble(self.props["dataset_names"])
+            else:           self._process_single(self.props["dataset_names"][0])
 
          # Rendering of call graphs.
         else:
@@ -98,14 +98,13 @@ class CallFlow:
         """
         pass
 
-    def _process_single(self):
+    def _process_single(self, dataset):
         """
         Single dataset processing.
         """
-        dataset_name = self.props["dataset_names"][0]
-        supergraph = SuperGraph(props=self.props, tag=dataset_name, mode="process")
+        supergraph = SuperGraph(props=self.props, tag=dataset, mode="process")
         LOGGER.info("#########################################")
-        LOGGER.info(f"Run: {dataset_name}")
+        LOGGER.info(f"Run: {dataset}")
         LOGGER.info("#########################################")
 
         # Process each graphframe.
@@ -124,13 +123,13 @@ class CallFlow:
             dataset=dataset_name, binCount=20, process=True,
         )
 
-    def _process_ensemble(self):
+    def _process_ensemble(self, datasets):
         """
         Ensemble processing of datasets.
         """
         # Before we process the ensemble, we perform single processing on all datasets.
         single_supergraphs = {}
-        for idx, dataset_name in enumerate(self.props["dataset_names"]):
+        for idx, dataset_name in enumerate(datasets):
             # Create an instance of dataset.
             single_supergraphs[dataset_name] = SuperGraph(
                 props=self.props, tag=dataset_name, mode="process"
@@ -275,7 +274,7 @@ class CallFlow:
             return self.supergraphs[operation["dataset"]].auxiliary_data
 
         elif operation_name == "supergraph":
-            single_supergraph = SingleSankey(supergraph=self.supergraphs[operation['dataset']], path="group_path")
+            single_supergraph = SankeyLayout(supergraph=self.supergraphs[operation['dataset']], path="group_path")
             return single_supergraph.nxg
 
         elif operation_name == "mini-histogram":
@@ -305,10 +304,8 @@ class CallFlow:
             return self.props
 
         elif operation_name == "ensemble_cct":
-            result = Render_CCT(
+            result = NodeLinkLayout(
                 supergraph=self.supergraphs['ensemble'],
-                #tag="ensemble",
-                #props=self.props,
                 callsite_count=operation["functionsInCCT"],
             )
             return result.nxg
@@ -329,20 +326,20 @@ class CallFlow:
             else:
                 split_callee_module = ""
 
-            # ensemble_super_graph = EnsembleSuperGraph(
-            #     supergraphs=self.supergraphs,
-            #     tag="ensemble",
-            #     path="group_path",
-            #     group_by_attr="module",
-            #     props=self.props,
-            #     construct_graph=True,
-            #     add_data=True,
-            #     reveal_callsites=reveal_callsites,
-            #     split_entry_module=split_entry_module,
-            #     split_callee_module=split_callee_module,
-            # )
-            ensemble_super_graph = SingleSankey(supergraph=self.supergraphs[operation['dataset']], path="group_path")
-            return ensemble_super_graph.agg_nxg
+            if len(operation["datasets"]) != len(self.props["dataset_names"]):
+                ensemble_supergraph.ensemble_auxiliary(
+                    # MPIBinCount=self.currentMPIBinCount,
+                    # RunBinCount=self.currentRunBinCount,
+                    datasets=operation["datasets"],
+                    MPIBinCount=20,
+                    RunBinCount=20,
+                    process=True,
+                    write=True,
+                )
+
+            ensemble_super_graph = SankeyLayout(supergraph=self.supergraphs["ensemble"], path="group_path")
+
+            return ensemble_super_graph.nxg
 
         # Not used.
         elif operation_name == "scatterplot":

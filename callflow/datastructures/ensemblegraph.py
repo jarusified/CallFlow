@@ -53,11 +53,11 @@ class EnsembleGraph(SuperGraph):
             #self.create_gf(data=data)
             #self.auxiliary_data = self.read_auxiliary_data()
 
-            with self.timer.phase(f"Creating the data maps."):
-                self.cct_df = self.gf.df[self.gf.df["name"].isin(self.gf.nxg.nodes())]
-                self.create_ensemble_maps()
-                for dataset in self.props["dataset_names"]:
-                    self.create_target_maps(dataset)
+            # with self.timer.phase(f"Creating the data maps."):
+            #     self.cct_df = self.gf.df[self.gf.df["name"].isin(self.gf.nxg.nodes())]
+            #     self.create_ensemble_maps()
+            #     for dataset in self.props["dataset_names"]:
+            #         self.create_target_maps(dataset)
 
     def union_df(self):
         """

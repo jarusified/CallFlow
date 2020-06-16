@@ -60,7 +60,6 @@ class GraphFrame (ht.GraphFrame):
             with open(fname, 'w') as fptr:
                 fptr.write(super().tree(color=False))
 
-        # TODO: Writing fails.
         if write_nxg:
             fname = os.path.join(os.path.join(path, GraphFrame._FILENAMES['nxg']))
             with open(fname, 'w') as fptr:
@@ -283,3 +282,30 @@ class GraphFrame (ht.GraphFrame):
             lambda node: mapping[node] if node in mapping.keys() else "")
 
     # --------------------------------------------------------------------------
+    @staticmethod
+    def print_information(gf, top_n_callsites=10):
+        # Print modules in the call graph.
+        LOGGER.info("Modules: {0}".format(gf.df["module"].unique()))
+
+        # Print top "N" callsites by inclusive time.
+        LOGGER.info(f"Top {top_n_callsites} Inclusive time: ")
+        rank_df = gf.df.groupby(["name", "nid"]).mean()
+        top_inclusive_df = rank_df.nlargest(top_n_callsites, "time (inc)", keep="first")
+        for name, row in top_inclusive_df.iterrows():
+            LOGGER.info("{0} [{1}]".format(name, row["time (inc)"]))
+
+        # Print top "N" callsites by exclusive time.
+        LOGGER.info(f"Top {top_n_callsites} Enclusive time: ")
+        top_exclusive_df = rank_df.nlargest(top_n_callsites, "time", keep="first")
+        for name, row in top_exclusive_df.iterrows():
+            LOGGER.info("{0} [{1}]".format(name, row["time"]))
+
+        # Print nodes in the nxg.
+        LOGGER.info("Nodes in the CallGraph: {0}".format(len(gf.nxg.nodes)))
+        for node in gf.nxg.nodes(data=True):
+            LOGGER.info("Node: {0}".format(node))
+
+        # Pring edges in the nxg.
+        LOGGER.info("Edges in the CallGraph: {0}".format(len(gf.nxg.edges)))
+        for edge in gf.nxg.edges():
+            LOGGER.info("Edge: {0}".format(edge))

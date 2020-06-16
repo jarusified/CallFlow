@@ -113,7 +113,12 @@ export default {
 			this.rectangle();
 			this.postVis();
 
-			this.$store.mode = "mean";
+			if(this.$store.selectedMode == 'Ensemble'){
+				this.$store.mode = "mean-gradients"
+			}
+			else if(this.$store.selectedMode == 'Single'){
+				this.$store.mode = "mean";
+			}
 
 			if (this.$store.mode == "mean-gradients") {
 				this.$refs.MeanGradients.init(this.graph.nodes, this.containerG);
@@ -183,6 +188,7 @@ export default {
 					"id": (d) => { return d.id + " callsite-rect" + d.client_idx; },
 					"class": "callsite-rect",
 					"height": (d) => {
+						console.log(d.height)
 						return d.height;
 					},
 					"width": this.nodeWidth,
