@@ -3,31 +3,29 @@
 #
 # SPDX-License-Identifier: MIT
 
-# ------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 # Library imports
 import os
 import pandas as pd
 import hatchet as ht
 import networkx as nx
 
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # CallFlow imports
 import callflow
 LOGGER = callflow.get_logger(__name__)
 
-# ------------------------------------------------------------------------------
-# GraphFrame Class
+#------------------------------------------------------------------------------
 class GraphFrame (ht.GraphFrame):
 
-    # --------------------------------------------------------------------------
     _FILENAMES = {'ht': 'hatchet_tree.txt',
                  'df': 'df.csv',
                  'nxg': 'nxg.json'}
 
-    # --------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
     def __init__(self, graph=None, dataframe=None, exc_metrics=None, inc_metrics=None):
         """
-        Initialize a graph grame object.
+        Constructs a callflow.GraphFrame object.
         """
 
         # TODO: will we ever want to create a graphframe without data?
@@ -37,13 +35,15 @@ class GraphFrame (ht.GraphFrame):
             # shortcut!
             self.df = self.dataframe
 
-        # save a networkx graph
         if graph:
             self.nxg = self.hatchet_graph_to_nxg(graph)
 
 
-    # --------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     def write(self, path, write_df=True, write_graph=False, write_nxg=True):
+        """
+        Write the GraphFrame as separate files (refer _FILENAMES for file name mapping).
+        """
 
         if not write_df and not write_graph and not write_nxg:
             return
@@ -67,7 +67,9 @@ class GraphFrame (ht.GraphFrame):
                 json.dump(nxg, fptr, indent=2)
 
     def read(self, path, read_graph=False):
-
+        """
+        Read the GraphFrame from .callflow directory (refer _FILENAMES for file name mapping).
+        """
         import json
         LOGGER.info("Reading graphframe from ({0})".format(path))
 
