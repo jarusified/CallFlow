@@ -377,8 +377,8 @@ class CallFlow:
             return self.similarities
 
         elif operation_name == "hierarchy":
-            mH = ModuleHierarchy(self.supergraphs["ensemble"], operation["module"])
-            return mH.result
+            modulehierarchy = ModuleHierarchy(self.supergraphs["ensemble"], operation["module"])
+            return modulehierarchy.nxg
 
         elif operation_name == "projection":
             self.similarities = {}
