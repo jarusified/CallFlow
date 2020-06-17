@@ -39,7 +39,7 @@ class SankeyLayout:
         LOGGER.info("Creating the Single SankeyLayout for {0}.".format(self.supergraph.tag))
 
         with self.timer.phase("Construct Graph"):
-            self.nxg = SankeyLayout.create_nxg_from_paths(self.supergraph.gf.df, self.path)
+            self.nxg = SankeyLayout._create_nxg_from_paths(self.supergraph.gf.df, self.path)
 
         with self.timer.phase("Add graph attributes"):
             self._add_node_attributes()
@@ -47,58 +47,56 @@ class SankeyLayout:
 
         LOGGER.debug(self.timer)
 
+    # ------------------------------------------------------------------------------
+    # Construct the networkX Graph from call paths.
     @staticmethod
-    def create_nxg_from_paths(df, path):
+    def _create_nxg_from_paths(df, path):
+        """
+        Construct a networkx graph from paths.
+        Note: Current logic constructs two graphs (one for cct, and one for supergraph) and later uses them to construct a module level supergraph.
+        """
         assert isinstance(df, pd.DataFrame)
         assert path in df.columns
         assert 'name' in df.columns
         assert 'module' in df.columns
 
+        # Get the grouped dataframes.
         paths_df = df.groupby(["name", path])
         module_name_group_df = df.groupby(["module", "name"])
 
+        # Empty networkx graphs.
         nxg = nx.DiGraph()
         cct = nx.DiGraph()
 
         for (callsite, path), path_df in paths_df:
+            # Break cycles, if any.
             path_list = SankeyLayout.break_cycles_in_paths(path)
+
+            # loop through the path lists for each callsite.
             for callsite_idx, callsite in enumerate(path_list):
                 if callsite_idx != len(path_list) - 1:
                     source = path_list[callsite_idx]
                     target = path_list[callsite_idx + 1]
 
-                    source_module = source["module"]
-                    target_module = target["module"]
+                    source_df = module_name_group_df.get_group((source["module"], source["callsite"]))
+                    target_df = module_name_group_df.get_group((target["module"], target["callsite"]))
 
-                    source_callsite = source["callsite"]
-                    target_callsite = target["callsite"]
-
-                    source_df = module_name_group_df.get_group((source_module, source_callsite))
-                    target_df = module_name_group_df.get_group((target_module, target_callsite))
-
-                    has_caller_edge = nxg.has_edge(source_module, target_module)
-                    has_callback_edge = nxg.has_edge(target_module, source_module)
-                    has_cct_edge = cct.has_edge(source_callsite, target_callsite)
-
-                    source_weight = source_df["time (inc)"].max()
-                    target_weight = target_df["time (inc)"].max()
-
-                    source_dataset = source_df["dataset"].unique().tolist()
-                    target_dataset = target_df["dataset"].unique().tolist()
+                    has_caller_edge = nxg.has_edge(source["module"], target["module"])
+                    has_callback_edge = nxg.has_edge(target["module"], source["module"])
+                    has_cct_edge = cct.has_edge(source["callsite"], target["callsite"])
 
                     if has_callback_edge:
                         edge_type = "callback"
-                        weight = 0
                     else:
                         edge_type = "caller"
 
                     edge_dict = {
-                        "source_callsite": source_callsite,
-                        "target_callsite": target_callsite,
+                        "source_callsite": source["callsite"],
+                        "target_callsite": target["callsite"],
                         "edge_type": edge_type,
-                        "weight": target_weight,
-                        "source_dataset": source_dataset,
-                        "target_dataset": target_dataset,
+                        "weight": target_df["time (inc)"].max(),
+                        "source_dataset": source_df["dataset"].unique().tolist(),
+                        "target_dataset": target_df["dataset"].unique().tolist(),
                     }
 
                     node_dict = {"type": "super-node"}
@@ -110,39 +108,48 @@ class SankeyLayout:
                         and not has_callback_edge
                     ):
                         print(
-                            f"Add {edge_type} edge for : {source_module}--{target_module}"
+                            f"Add {edge_type} edge for : {source['module']}--{target['module']}"
                         )
-                        nxg.add_node(source_module, attr_dict=node_dict)
-                        nxg.add_node(target_module, attr_dict=node_dict)
-                        nxg.add_edge(source_module, target_module, attr_dict=[edge_dict])
+                        nxg.add_node(source["module"], attr_dict=node_dict)
+                        nxg.add_node(target["module"], attr_dict=node_dict)
+                        nxg.add_edge(source["module"], target["module"], attr_dict=[edge_dict])
 
+                    # Edge exists for source["module"] -> target["module"]
                     elif not has_cct_edge and not has_callback_edge:
-                        # print(f"Edge already exists for : {source_module}--{target_module}")
-                        edge_data = nxg.get_edge_data(*(source_module, target_module))
-                        nxg[source_module][target_module]["attr_dict"].append(edge_dict)
+                        edge_data = nxg.get_edge_data(*(source["module"], target["module"]))
+                        nxg[source["module"]][target["module"]]["attr_dict"].append(edge_dict)
 
+                    # If edge is not in CCT. Add it.
                     if not has_cct_edge:
                         cct.add_edge(
-                            source_callsite,
-                            target_callsite,
-                            attr_dict={"weight": target_weight},
+                            source["callsite"],
+                            target["callsite"],
+                            attr_dict={"weight": target_df["time (inc)"].max()},
                         )
 
         return nxg
 
     @staticmethod
     def break_cycles_in_paths(path):
+        """
+        Breaks cycles if present in the callpath.
 
-        from ast import literal_eval as make_tuple
+        Parameter:
+            path: path array
+        """
+        from ast import literal_eval as make_list
 
         ret = []
         moduleMapper = {}
         dataMap = {}
 
+        # TODO: see if we can remove this.
         if isinstance(path, float):
             return []
-        path = make_tuple(path)
-        for idx, elem in enumerate(path):
+
+        path_list = make_list(path)
+
+        for idx, elem in enumerate(path_list):
             callsite = elem.split("=")[1]
             module = elem.split("=")[0]
             if module not in dataMap:
@@ -154,101 +161,39 @@ class SankeyLayout:
                 flag = [p["level"] == idx for p in dataMap[module]]
                 if np.any(np.array(flag)):
                     moduleMapper[module] += 1
-                    dataMap[module].append(
-                        {
+                    dataMap[module].append({
                             "callsite": callsite,
                             "module": module + "=" + callsite,
                             "level": idx,
-                        }
-                    )
+                        })
                 else:
-                    dataMap[module].append(
-                        {"callsite": callsite, "module": module, "level": idx}
-                    )
+                    dataMap[module].append({"callsite": callsite, "module": module, "level": idx})
             ret.append(dataMap[module][-1])
 
         return ret
 
-    @staticmethod
-    def module_time(group_df, module_callsite_map, module):
-        exc_time_sum = 0
-        inc_time_max = 0
-        for callsite in module_callsite_map[module]:
-            callsite_df = group_df.get_group((module, callsite))
-            max_inc_time = callsite_df["time (inc)"].max()
-            inc_time_max = max(inc_time_max, max_inc_time)
-            max_exc_time = callsite_df["time"].max()
-            exc_time_sum += max_exc_time
-        return {"Inclusive": inc_time_max, "Exclusive": exc_time_sum}
+    # --------------------------------------------------------------------------
+    # Node attribute methods.
+    def _add_node_attributes(self):
+        """
+        Adds node attributes from the dataframe using the _COLUMNS.
+        """
+        ensemble_mapping = SankeyLayout._ensemble_map(df=self.supergraph.gf.df, nxg=self.nxg, columns=SankeyLayout._COLUMNS)
+        for idx, key in enumerate(ensemble_mapping):
+            nx.set_node_attributes(self.nxg, name=key, values=ensemble_mapping[key])
+
+        dataset_mapping = {}
+        for run in self.runs:
+            dataset_mapping[run] = SankeyLayout._dataset_map(df=self.supergraph.gf.df, nxg=self.nxg, tag=run, columns=SankeyLayout._COLUMNS)
+            nx.set_node_attributes(self.nxg, name=self.supergraph.tag, values=dataset_mapping[run])
 
     @staticmethod
-    def callsite_time(group_df, module, callsite):
-        callsite_df = group_df.get_group((module, callsite))
-        max_inc_time = callsite_df["time (inc)"].max()
-        max_exc_time = callsite_df["time"].max()
-
-        return {"Inclusive": max_inc_time, "Exclusive": max_exc_time}
-
-    @staticmethod
-    def edge_type(nxg):
-        ret = {}
-        for edge in nxg.edges(data=True):
-            ret[(edge[0], edge[1])] = edge[2]["attr_dict"][0]["edge_type"]
-        return ret
-
-    @staticmethod
-    def entry_functions(nxg):
-        entry_functions = {}
-        for edge in nxg.edges(data=True):
-            attr_dict = edge[2]["attr_dict"]
-            edge_tuple = (edge[0], edge[1])
-            for edge_attr in attr_dict:
-                if edge_tuple not in entry_functions:
-                    entry_functions[edge_tuple] = []
-                entry_functions[edge_tuple].append(edge_attr["target_callsite"])
-        return entry_functions
-
-    @staticmethod
-    def exit_functions(nxg):
-        exit_functions = {}
-        for edge in nxg.edges(data=True):
-            attr_dict = edge[2]["attr_dict"]
-            edge_tuple = (edge[0], edge[1])
-            for edge_attr in attr_dict:
-                if edge_tuple not in exit_functions:
-                    exit_functions[edge_tuple] = []
-                exit_functions[edge_tuple].append(edge_attr["source_callsite"])
-        return exit_functions
-
-    @staticmethod
-    def flows(nxg):
-        flow_mapping = {}
-        for edge in nxg.edges(data=True):
-            if (edge[0], edge[1]) not in flow_mapping:
-                flow_mapping[(edge[0], edge[1])] = 0
-
-            attr_dict = edge[2]["attr_dict"]
-            for d in attr_dict:
-                flow_mapping[(edge[0], edge[1])] += d["weight"]
-
-        ret = {}
-        for edge in nxg.edges(data=True):
-            edge_tuple = (edge[0], edge[1])
-            if edge_tuple not in flow_mapping:
-                # Check if it s a reveal edge
-                attr_dict = edge[2]["attr_dict"]
-                if attr_dict["edge_type"] == "reveal_edge":
-                    flow_mapping[edge_tuple] = attr_dict["weight"]
-                    ret[edge_tuple] = flow_mapping[edge_tuple]
-                else:
-                    ret[edge_tuple] = 0
-            else:
-                ret[edge_tuple] = flow_mapping[edge_tuple]
-
-        return ret
-
-    @staticmethod
-    def ensemble_map(df, nxg, columns=[]):
+    def _ensemble_map(df, nxg, columns=[]):
+        """
+        Creates maps for all columns for the ensemble data.
+        Note: For single supergraph, ensemble_map would be the same as dataset_map[single_run.tag].
+        TODO: There is code repetition among ensemble_maps and dataset_maps. Need to simplify.
+        """
         assert isinstance(df, pd.DataFrame)
         assert isinstance(nxg, nx.DiGraph)
         ret = {}
@@ -309,7 +254,13 @@ class SankeyLayout:
         return ret
 
     @staticmethod
-    def dataset_map(df=pd.DataFrame([]), nxg=nx.DiGraph(), columns=[], tag=""):
+    def _dataset_map(df, nxg, columns=[], tag=""):
+        """
+        Creates maps for all node attributes (i.e., columns in df) for each dataset.
+        """
+        assert isinstance(df, pd.DataFrame)
+        assert isinstance(nxg, nx.DiGraph)
+
         ret = {}
 
         # Reduce the entire_df to respective target dfs.
@@ -378,23 +329,39 @@ class SankeyLayout:
 
         return ret
 
+    @staticmethod
+    def module_time(group_df, module_callsite_map, module):
+        """
+        For node attributes: Calculates the time spent inside the module overall
+        """
+        exc_time_sum = 0
+        inc_time_max = 0
+        for callsite in module_callsite_map[module]:
+            callsite_df = group_df.get_group((module, callsite))
+            max_inc_time = callsite_df["time (inc)"].max()
+            inc_time_max = max(inc_time_max, max_inc_time)
+            max_exc_time = callsite_df["time"].max()
+            exc_time_sum += max_exc_time
+        return {"Inclusive": inc_time_max, "Exclusive": exc_time_sum}
+
+    @staticmethod
+    def callsite_time(group_df, module, callsite):
+        """
+        For node attribute: Calculates the time spent by each callsite.
+        """
+        callsite_df = group_df.get_group((module, callsite))
+        max_inc_time = callsite_df["time (inc)"].max()
+        max_exc_time = callsite_df["time"].max()
+
+        return {"Inclusive": max_inc_time, "Exclusive": max_exc_time}
+
     # --------------------------------------------------------------------------
-    def _add_node_attributes(self):
-        ensemble_mapping = SankeyLayout.ensemble_map(df=self.supergraph.gf.df, nxg=self.nxg, columns=SankeyLayout._COLUMNS)
-        for idx, key in enumerate(ensemble_mapping):
-            nx.set_node_attributes(self.nxg, name=key, values=ensemble_mapping[key])
-
-
-        dataset_mapping = {}
-        for run in self.runs:
-            dataset_mapping[run] = SankeyLayout.dataset_map(df=self.supergraph.gf.df, nxg=self.nxg, tag=run, columns=SankeyLayout._COLUMNS)
-            nx.set_node_attributes(self.nxg, name=self.supergraph.tag, values=dataset_mapping[run])
-
+    # Edge attribute methods.
     def _add_edge_attributes(self):
         edge_type_mapping = SankeyLayout.edge_type(self.nxg)
         nx.set_edge_attributes(self.nxg, name="edge_type", values=edge_type_mapping)
 
-        inclusive_flow = SankeyLayout.flows(self.nxg)
+        inclusive_flow = SankeyLayout.edge_weight(self.nxg)
         nx.set_edge_attributes(self.nxg, name="weight", values=inclusive_flow)
 
         entry_functions_mapping = SankeyLayout.entry_functions(self.nxg)
@@ -402,3 +369,73 @@ class SankeyLayout:
 
         exit_functions_mapping = SankeyLayout.exit_functions(self.nxg)
         nx.set_edge_attributes(self.nxg, name="exit_callsites", values=exit_functions_mapping)
+
+    @staticmethod
+    def edge_type(nxg):
+        """
+        For edge attribute: Appends the edge type ("caller", or "callback")
+        """
+        ret = {}
+        for edge in nxg.edges(data=True):
+            ret[(edge[0], edge[1])] = edge[2]["attr_dict"][0]["edge_type"]
+        return ret
+
+    @staticmethod
+    def edge_weight(nxg):
+        """
+        For edge attribute: Calculates the sankey flow between nodes.
+        """
+        flow_mapping = {}
+        for edge in nxg.edges(data=True):
+            if (edge[0], edge[1]) not in flow_mapping:
+                flow_mapping[(edge[0], edge[1])] = 0
+
+            attr_dict = edge[2]["attr_dict"]
+            for d in attr_dict:
+                flow_mapping[(edge[0], edge[1])] += d["weight"]
+
+        ret = {}
+        for edge in nxg.edges(data=True):
+            edge_tuple = (edge[0], edge[1])
+            if edge_tuple not in flow_mapping:
+                # Check if it s a reveal edge
+                attr_dict = edge[2]["attr_dict"]
+                if attr_dict["edge_type"] == "reveal_edge":
+                    flow_mapping[edge_tuple] = attr_dict["weight"]
+                    ret[edge_tuple] = flow_mapping[edge_tuple]
+                else:
+                    ret[edge_tuple] = 0
+            else:
+                ret[edge_tuple] = flow_mapping[edge_tuple]
+
+        return ret
+
+    @staticmethod
+    def entry_functions(nxg):
+        """
+        For edge attribute: Adds the entry functions for the module.
+        """
+        entry_functions = {}
+        for edge in nxg.edges(data=True):
+            attr_dict = edge[2]["attr_dict"]
+            edge_tuple = (edge[0], edge[1])
+            for edge_attr in attr_dict:
+                if edge_tuple not in entry_functions:
+                    entry_functions[edge_tuple] = []
+                entry_functions[edge_tuple].append(edge_attr["target_callsite"])
+        return entry_functions
+
+    @staticmethod
+    def exit_functions(nxg):
+        """
+        For edge attribute: Adds the exit functions from the module.
+        """
+        exit_functions = {}
+        for edge in nxg.edges(data=True):
+            attr_dict = edge[2]["attr_dict"]
+            edge_tuple = (edge[0], edge[1])
+            for edge_attr in attr_dict:
+                if edge_tuple not in exit_functions:
+                    exit_functions[edge_tuple] = []
+                exit_functions[edge_tuple].append(edge_attr["source_callsite"])
+        return exit_functions

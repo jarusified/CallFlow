@@ -17,6 +17,7 @@ from callflow import SuperGraph
 
 # ------------------------------------------------------------------------------
 # CCT Rendering class.
+# TODO: remove this file. No longer used. It has been moved to layout/nodelink.py
 class Render_CCT():
 
     _COLUMNS = ['time (inc)', 'time', 'name', 'module']

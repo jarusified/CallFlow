@@ -55,8 +55,10 @@ class NodeLinkLayout:
 
     # --------------------------------------------------------------------------
     def _add_node_attributes(self):
+        module_name_group_df = self.supergraph.gf.df.groupby(["module", "name"])
+        name_time_inc_map = module_name_group_df["time (inc)"].max().to_dict()
+        name_time_exc_map = module_name_group_df["time"].max().to_dict()
 
-        # ----------------------------------------------------------------------
         # compute data map
         datamap = {}
         for callsite in self.nxg.nodes():
@@ -68,13 +70,9 @@ class NodeLinkLayout:
                     datamap[column] = {}
 
                 if column == "time (inc)":
-                    datamap[column][callsite] = self.supergraph.name_time_inc_map[
-                        (module, callsite)
-                    ]
+                    datamap[column][callsite] = name_time_inc_map[(module, callsite)]
                 elif column == "time":
-                    datamap[column][callsite] = self.supergraph.name_time_exc_map[
-                        (module, callsite)
-                    ]
+                    datamap[column][callsite] = name_time_exc_map[(module, callsite)]
                 elif column == "name":
                     datamap[column][callsite] = callsite
                 elif column == "module":
@@ -87,13 +85,20 @@ class NodeLinkLayout:
         # ----------------------------------------------------------------------
         # compute map across data
         for run in self.runs:
+            target_df = self.supergraph.gf.df.loc[self.supergraph.gf.df["dataset"] == run]
+            target_module_group_df = target_df.groupby(["module"])
+            target_module_name_group_df = target_df.groupby(["module", "name"]
+        )
+            target_module_callsite_map = target_module_group_df["name"].unique().to_dict()
+            target_name_time_inc_map = target_module_name_group_df["time (inc)"].max().to_dict()
+            target_name_time_exc_map = target_module_name_group_df["time"].max().to_dict()
 
             datamap = {}
             for callsite in self.nxg.nodes():
 
                 if (
                     callsite
-                    not in self.supergraph.target_module_callsite_map[run].keys()
+                    not in target_module_callsite_map.keys()
                 ):
                     continue
 
@@ -108,13 +113,9 @@ class NodeLinkLayout:
                         datamap[column] = {}
 
                     if column == "time (inc)":
-                        datamap[callsite][
-                            column
-                        ] = self.supergraph.target_module_time_inc_map[run][module]
+                        datamap[callsite][column] = target_name_time_inc_map[module]
                     elif column == "time":
-                        datamap[callsite][
-                            column
-                        ] = self.supergraph.target_module_time_exc_map[run][module]
+                        datamap[callsite][column] = target_module_time_exc_map[module]
                     elif column == "module":
                         datamap[callsite][column] = module
                     elif column == "name":
@@ -149,7 +150,7 @@ class NodeLinkLayout:
         nx.set_edge_attributes(self.nxg, name="count", values=edge_counter)
 
     # --------------------------------------------------------------------------
-    # --------------------------------------------------------------------------
+    # Reports the number of cycles in the callpaths.
     @staticmethod
     def _find_cycle(G, source=None, orientation=None):
         """
@@ -294,5 +295,4 @@ class NodeLinkLayout:
             return edge[1], edge[0]
         return edge[0], edge[1]
 
-    # --------------------------------------------------------------------------
     # --------------------------------------------------------------------------

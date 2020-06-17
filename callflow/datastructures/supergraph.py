@@ -250,7 +250,9 @@ class SuperGraph(object):
     # Read/Write functions for parameter file, auxiliary information (for the client), and pair-wise similarity.
     @staticmethod
     def read_parameters(path):
-
+        """
+        Read parameters from "dataset_path/env_params.txt".
+        """
         fname = os.path.join(path, SuperGraph._FILENAMES["params"])
         LOGGER.info(f"[Read] {fname}")
 
@@ -265,7 +267,9 @@ class SuperGraph(object):
 
     @staticmethod
     def read_auxiliary_data(path):
-
+        """
+        Read the data stored in auxiliary_data.json
+        """
         fname = os.path.join(path, SuperGraph._FILENAMES["aux"])
         LOGGER.info(f"[Read] {fname}")
         data = None
@@ -276,7 +280,7 @@ class SuperGraph(object):
     @staticmethod
     def _unused_write_similarity(datasets, states, type):
         """
-        # Write the pair-wise graph similarities into .callflow directory.
+        # Write the pair-wise graph similarities into .callflow/ensemble directory.
         """
         assert False
         ret = {}
@@ -286,10 +290,7 @@ class SuperGraph(object):
                 union_similarity = Similarity(states[dataset2].g, states[dataset].g)
                 ret[dataset].append(union_similarity.result)
 
-        dirname = self.config.callflow_dir
-        name = self.config.runName
-        # similarity_filepath = dirname + "/" + "similarity.json"
-        similarity_filepath = os.path.join(dirname, "similarity.json")
+        similarity_filepath = os.path.join(self.dirname, "/ensemble/similarity.json")
         with open(similarity_filepath, "w") as json_file:
             json.dump(ret, json_file)
 
