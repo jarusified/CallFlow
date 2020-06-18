@@ -142,28 +142,9 @@ class GraphFrame (ht.GraphFrame):
 
         return GraphFrame.from_hatchet(gf)
 
-    @staticmethod
-    def _remove_from_data(data):
-        """
-        Create GraphFrame from 3 sets of information : df, graph, nxg.
-        """
-        # Hatchet requires node and rank to be indexes.
-        data["df"] = data["df"].set_index(["node", "rank"])
-
-        # Create a graphframe using Hatchet.
-        gf = GraphFrame()
-        gf.df = data["df"]
-        gf.graph = data["graph"]
-        gf.nxg = data["nxg"]
-
-        # remove the set indexes to maintain consistency.
-        gf.df = gf.df.reset_index(drop=False)
-        return gf
-
     # --------------------------------------------------------------------------
     # --------------------------------------------------------------------------
     # callflow.graph utilities.
-
     @staticmethod
     def hatchet_graph_to_nxg(ht_graph):
         """
@@ -219,7 +200,6 @@ class GraphFrame (ht.GraphFrame):
 
     # --------------------------------------------------------------------------
     # callflow.nxg utilities.
-
     @staticmethod
     def add_prefix(graph, prefix):
         """

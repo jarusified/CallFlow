@@ -37,14 +37,35 @@ class SuperGraph(object):
             tag (str): Tag for each call graph.
             mode (str): process|render. process performs pre-processing, and render calculates layout for the client.
         """
+        assert mode in ['process', 'render']
         self.timer = Timer()
 
         self.props = props
-        self.dirname = self.props["save_path"]
+        self.dirname = os.path.join(self.props["save_path"], tag)
         self.tag = tag
         self.mode = mode
 
         self.create_gf()
+
+    # --------------------------------------------------------------------------
+    def _create_for_render(self):
+
+        assert self.mode == "render"
+        self.gf = callflow.GraphFrame()
+        self.gf.read(self.dirname)
+
+        # Read only if "read_parameters" is specified in the config file.
+        if self.props["read_parameter"]:
+            self.parameters = SuperGraph.read_parameters(self.dirname)
+        self.auxiliary_data = SuperGraph.read_auxiliary_data(self.dirname)
+
+        # NOTE: I dont think we need this anymore. But keeping it just in case.
+        # with self.timer.phase(f"Creating the data maps."):
+        #     self.cct_df = self.gf.df[self.gf.df["name"].isin(self.gf.nxg.nodes())]
+        #     self.create_ensemble_maps()
+        #     for dataset in self.props["dataset_names"]:
+        #         self.create_target_maps(dataset)
+
 
     def create_gf(self):
         """Create a graphframe based on the mode.
@@ -55,26 +76,9 @@ class SuperGraph(object):
             self.gf = callflow.GraphFrame.from_config(self.props, self.tag)
 
         elif self.mode == "render":
-            path = os.path.join(self.dirname, self.tag)
-
-            self.gf = callflow.GraphFrame()
-            self.gf.read(path)
-
-            # Read only if "read_parameters" is specified in the config file.
-            if self.props["read_parameter"]:
-                self.parameters = SuperGraph.read_parameters(path)
-
-            self.auxiliary_data = SuperGraph.read_auxiliary_data(path)
-
-            # NOTE: I dont think we need this anymore. But keeping it just in case.
-            # with self.timer.phase(f"Creating the data maps."):
-            #     self.cct_df = self.gf.df[self.gf.df["name"].isin(self.gf.nxg.nodes())]
-            #     self.create_ensemble_maps()
-            #     for dataset in self.props["dataset_names"]:
-            #         self.create_target_maps(dataset)
+            self._create_for_render()
 
     # -------------------------------------------------------------------------
-    # Question: Probably belongs to graphframe class?
     def get_module_name(self, callsite):
         """
         Get the module name for a callsite.
@@ -89,22 +93,6 @@ class SuperGraph(object):
 
         return self.gf.lookup_with_name(callsite)["module"].unique()[0]
 
-    # -------------------------------------------------------------------------
-    # Remove this block enitrely.
-    def _remove__getter(self):
-        """
-        Getter for graphframe. Returns the graphframe.
-        """
-        return self.gf
-
-    def _remove__setter(self, gf):
-        """
-        Setter for graphframe. Hooks the graphframe.
-        """
-        assert isinstance(gf, callflow.GraphFrame)
-
-        self.gf = gf
-
     # ------------------------------------------------------------------------
     # The next block of functions attach the calculated result to the variable `gf`.
     def process_gf(self):
@@ -117,33 +105,29 @@ class SuperGraph(object):
         """
         if self.props["format"][self.tag] == "hpctoolkit":
 
-            process = (
-                Process.Builder(self.gf, self.tag)
-                .add_path()
-                .create_name_module_map()
-                .add_callers_and_callees()
-                .add_dataset_name()
-                .add_imbalance_perc()
-                .add_module_name_hpctoolkit()
-                .add_vis_node_name()
-                .build()
-            )
+            process = (Process.Builder(self.gf, self.tag)
+                              .add_path()
+                              .create_name_module_map()
+                              .add_callers_and_callees()
+                              .add_dataset_name()
+                              .add_imbalance_perc()
+                              .add_module_name_hpctoolkit()
+                              .add_vis_node_name()
+                              .build())
 
         elif self.props["format"][self.tag] == "caliper_json":
 
-            process = (
-                Process.Builder(self.gf, self.tag)
-                .add_time_columns()
-                .add_rank_column()
-                .add_callers_and_callees()
-                .add_dataset_name()
-                .add_imbalance_perc()
-                .add_module_name_caliper(self.props["callsite_module_map"])
-                .create_name_module_map()
-                .add_vis_node_name()
-                .add_path()
-                .build()
-            )
+            process = (Process.Builder(self.gf, self.tag)
+                              .add_time_columns()
+                              .add_rank_column()
+                              .add_callers_and_callees()
+                              .add_dataset_name()
+                              .add_imbalance_perc()
+                              .add_module_name_caliper(self.props["callsite_module_map"])
+                              .create_name_module_map()
+                              .add_vis_node_name()
+                              .add_path()
+                              .build())
 
         self.gf = process.gf
 
@@ -157,89 +141,23 @@ class SuperGraph(object):
         """
         Filter the graphframe.
         """
-        self.gf = Filter(
-            gf=self.gf,
-            mode=mode,
-            filter_by=self.props["filter_by"],
-            filter_perc=self.props["filter_perc"],
-        ).gf
+        self.gf = Filter(gf=self.gf, mode=mode,
+                            filter_by=self.props["filter_by"],
+                            filter_perc=self.props["filter_perc"]).gf
 
-    # ------------------------------------------------------------------------
-    # Remove this block entirely.
-    def _remove_read_gf(self, read_parameter=True, read_graph=False):
-        """
-        # Read a single dataset stored in .callflow directory.
-        """
-        LOGGER.info("Reading the dataset: {0}".format(self.tag))
-
-        df_file_name = "df.csv"
-        df_file_path = os.path.join(self.dirname, self.tag, df_file_name)
-        df = pd.read_csv(df_file_path)
-        if df.empty:
-            raise ValueError(f"{df_file_path} is empty.")
-
-        nxg_file_name = "nxg.json"
-        nxg_file_path = os.path.join(self.dirname, self.tag, nxg_file_name)
-        with open(nxg_file_path, "r") as nxg_file:
-            graph = json.load(nxg_file)
-        nxg = json_graph.node_link_graph(graph)
-        assert nxg != None
-
-        graph = {}
-        if read_graph:
-            graph_file_name = "hatchet_tree.txt"
-            graph_file_path = os.path.join(self.dirname, self.tag, graph_file_name)
-            with open(graph_file_path, "r") as graph_file:
-                graph = json.load(graph_file)
-            assert isinstance(graph, ht.GraphFrame.Graph)
-
-        parameters = {}
-        if read_parameter:
-            parameters_filepath = os.path.join(self.dirname, self.tag, "env_params.txt")
-            for line in open(parameters_filepath, "r"):
-                s = 0
-                for num in line.strip().split(","):
-                    split_num = num.split("=")
-                    parameters[split_num[0]] = split_num[1]
-
-        return {"df": df, "nxg": nxg, "graph": graph, "parameters": parameters}
-
-    def _remove_write_gf(self, write_df=True, write_graph=False, write_nxg=True):
-        """
-        # Write the dataset to .callflow directory.
-        """
-        # Get the save path.
-        dirname = self.props["save_path"]
-
-        gf = self.gf
-        # dump the filtered dataframe to csv if write_df is true.
-        if write_df:
-            df_file_name = "df.csv"
-            df_file_path = os.path.join(dirname, self.tag, df_file_name)
-            gf.df.to_csv(df_file_path)
-
-        if write_nxg:
-            nxg_file_name = "nxg.json"
-            nxg_file_path = os.path.join(dirname, self.tag, nxg_file_name)
-            nxg_data = json_graph.node_link_data(self.gf.nxg)
-            with open(nxg_file_path, "w") as nxg_file:
-                json.dump(nxg_data, nxg_file)
-
-        if write_graph:
-            graph_filepath = os.path.join(dirname, self.tag, "hatchet_tree.txt")
-            with open(graph_filepath, "a") as hatchet_graphFile:
-                hatchet_graphFile.write(self.gf.tree(color=False))
-
-    # ------------------------------------------------------------------------
+ 
+    # --------------------------------------------------------------------------
     # Question: These functions just call another class, should we just call the corresponding classes directly?
     def write_gf(self, write_df=True, write_graph=False, write_nxg=True):
-        path = os.path.join(self.props["save_path"], self.tag)
-        self.gf.write(path, write_df, write_graph, write_nxg)
+        self.gf.write(self.dirname, write_df, write_graph, write_nxg)
 
-    def ensemble_auxiliary(self, datasets, MPIBinCount=20,
-                                          RunBinCount=20, process=True, write=True):
+    # --------------------------------------------------------------------------
+    def ensemble_auxiliary(self, datasets, MPIBinCount=20, RunBinCount=20,
+                                           process=True, write=True):
+
         EnsembleAuxiliary(self.gf, datasets=datasets, props=self.props,
-                                   MPIBinCount=MPIBinCount, RunBinCount=RunBinCount,
+                                   MPIBinCount=MPIBinCount,
+                                   RunBinCount=RunBinCount,
                                    process=process, write=write)
 
     def single_auxiliary(self, dataset="", binCount=20, process=True):
@@ -352,3 +270,8 @@ class SuperGraph(object):
         # Exclusive time maps for the module level and callsite level.
         self.module_time_exc_map = self.module_group_df["time"].max().to_dict()
         self.name_time_exc_map = self.module_name_group_df["time"].max().to_dict()
+<<<<<<< Updated upstream
+=======
+
+    # -------------------------------------------------------------------------
+>>>>>>> Stashed changes

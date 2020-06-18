@@ -119,9 +119,8 @@ class CallFlow:
         # Store the graphframe.
         supergraph.write_gf("entire")
 
-        supergraph.single_auxiliary(
-            dataset=dataset_name, binCount=20, process=True,
-        )
+        supergraph.single_auxiliary(dataset=dataset, #_name, 
+                                        binCount=20, process=True)
 
     def _process_ensemble(self, datasets):
         """

@@ -3,18 +3,18 @@
 #
 # SPDX-License-Identifier: MIT
 
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # Library imports
 import networkx as nx
 import pandas as pd
 
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # CallFlow imports
 import callflow
 LOGGER = callflow.get_logger(__name__)
 from callflow import SuperGraph
 
-# ----------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 class EnsembleGraph(SuperGraph):
     """
     Ensemble SuperGraph Class to handle the processing of ensemble of call graphs.
@@ -22,7 +22,7 @@ class EnsembleGraph(SuperGraph):
     Note: I am thinking this might also not really be a class that extends SuperGraph.
     """
 
-    # ------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     def __init__(self, props={}, tag="", mode="process", supergraphs={}):
         """
         Arguments:
@@ -32,7 +32,7 @@ class EnsembleGraph(SuperGraph):
 
         super().__init__(props, tag, mode)
 
-    # ------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     def create_gf(self):
         """
         Create a new callflow.graphframe containing the information of the ensemble.
@@ -52,29 +52,10 @@ class EnsembleGraph(SuperGraph):
             self.gf.graph = None
             self.gf.nxg = self.union_nxg()
 
-            assert isinstance(self.gf, callflow.GraphFrame)
-
         elif self.mode == "render":
-            import os
+            self._create_for_render()
 
-            path = os.path.join(self.dirname, self.tag)
-
-            self.gf = callflow.GraphFrame()
-            self.gf.read(path)
-
-            # Read only if "read_parameters" is specified in the config file.
-            if self.props["read_parameter"]:
-                self.parameters = SuperGraph.read_parameters(path)
-            self.auxiliary_data = SuperGraph.read_auxiliary_data(path)
-
-            # NOTE: I dont think we need this anymore. But keeping it just in case.
-            # with self.timer.phase(f"Creating the data maps."):
-            #     self.cct_df = self.gf.df[self.gf.df["name"].isin(self.gf.nxg.nodes())]
-            #     self.create_ensemble_maps()
-            #     for dataset in self.props["dataset_names"]:
-            #         self.create_target_maps(dataset)
-
-    # --------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     def union_df(self):
         """
         Union the dataframes.
@@ -82,12 +63,10 @@ class EnsembleGraph(SuperGraph):
             (pd.DataFrame) DataFrame for union of the dataframes.
         """
         df = pd.DataFrame([])
+
         for idx, tag in enumerate(self.supergraphs):
-            gf = self.supergraphs[tag].gf
+            df = pd.concat([df, self.supergraphs[tag].gf.df], sort=True)
 
-            df = pd.concat([df, gf.df], sort=True)
-
-        assert isinstance(df, pd.DataFrame)
         return df
 
     def union_nxg(self):
@@ -101,12 +80,13 @@ class EnsembleGraph(SuperGraph):
         for idx, tag in enumerate(self.supergraphs):
             LOGGER.debug("-=========================-")
             LOGGER.debug(tag)
-            self.union_nxg_recurse(nxg, self.supergraphs[tag].gf.nxg)
+            EnsembleGraph._union_nxg_recurse(nxg, self.supergraphs[tag].gf.nxg)
 
         return nxg
 
     # Return the union of graphs G and H.
-    def union_nxg_recurse(self, nxg_1, nxg_2):
+    @staticmethod
+    def _union_nxg_recurse(nxg_1, nxg_2):
         """
         Pairwise Iterative concatenation of nodes from nxg_2 to nxg_1.
 
@@ -135,6 +115,7 @@ class EnsembleGraph(SuperGraph):
 
         return nxg_1
 
+    # --------------------------------------------------------------------------
     # TODO:
     def edge_weight(self, nxg):
         pass
@@ -153,3 +134,5 @@ class EnsembleGraph(SuperGraph):
         for idx, (key, val) in enumerate(H.nodes.items()):
             if dataset_name not in self.nxg.nodes[node]:
                 self.nxg.nodes[node] = self.vector[node]
+
+    # --------------------------------------------------------------------------
