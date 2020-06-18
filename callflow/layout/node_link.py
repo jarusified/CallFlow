@@ -45,7 +45,7 @@ class NodeLinkLayout:
             self.nxg = NodeLinkLayout._create_nxg_from_paths(df["path"].tolist())
 
         # Add node and edge attributes.
-        with self.timer.phase(f"Add node and edge attributes."):
+        with self.timer.phase("Add graph attributes"):
             self._add_node_attributes()
             self._add_edge_attributes()
 
@@ -55,6 +55,7 @@ class NodeLinkLayout:
 
     # --------------------------------------------------------------------------
     def _add_node_attributes(self):
+
         module_name_group_df = self.supergraph.gf.df.groupby(["module", "name"])
         name_time_inc_map = module_name_group_df["time (inc)"].max().to_dict()
         name_time_exc_map = module_name_group_df["time"].max().to_dict()
@@ -87,8 +88,7 @@ class NodeLinkLayout:
         for run in self.runs:
             target_df = self.supergraph.gf.df.loc[self.supergraph.gf.df["dataset"] == run]
             target_module_group_df = target_df.groupby(["module"])
-            target_module_name_group_df = target_df.groupby(["module", "name"]
-        )
+            target_module_name_group_df = target_df.groupby(["module", "name"])
             target_module_callsite_map = target_module_group_df["name"].unique().to_dict()
             target_name_time_inc_map = target_module_name_group_df["time (inc)"].max().to_dict()
             target_name_time_exc_map = target_module_name_group_df["time"].max().to_dict()
@@ -96,10 +96,7 @@ class NodeLinkLayout:
             datamap = {}
             for callsite in self.nxg.nodes():
 
-                if (
-                    callsite
-                    not in target_module_callsite_map.keys()
-                ):
+                if callsite not in target_module_callsite_map.keys():
                     continue
 
                 module = self.supergraph.get_module_name(callsite)

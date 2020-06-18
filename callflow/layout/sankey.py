@@ -23,7 +23,7 @@ class SankeyLayout:
 
     _COLUMNS = ["actual_time", "time (inc)", "module", "name", "time", "type", "module"]
 
-    def __init__(self, supergraph={}, path="path"):
+    def __init__(self, supergraph, path="path"):
         assert isinstance(supergraph, SuperGraph)
         assert isinstance(path, str)
         assert path in ["path", "group_path", "component_path"]
@@ -47,7 +47,64 @@ class SankeyLayout:
 
         LOGGER.debug(self.timer)
 
-    # ------------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
+    # Node attribute methods.
+    def _add_node_attributes(self):
+        """
+        Adds node attributes from the dataframe using the _COLUMNS.
+        """
+        ensemble_mapping = SankeyLayout._ensemble_map(df=self.supergraph.gf.df, nxg=self.nxg, columns=SankeyLayout._COLUMNS)
+        for idx, key in enumerate(ensemble_mapping):
+            nx.set_node_attributes(self.nxg, name=key, values=ensemble_mapping[key])
+
+        dataset_mapping = {}
+        for run in self.runs:
+            dataset_mapping[run] = SankeyLayout._dataset_map(df=self.supergraph.gf.df, nxg=self.nxg, tag=run, columns=SankeyLayout._COLUMNS)
+            nx.set_node_attributes(self.nxg, name=self.supergraph.tag, values=dataset_mapping[run])
+
+    # --------------------------------------------------------------------------
+    # Edge attribute methods.
+    def _add_edge_attributes(self):
+        edge_type_mapping = SankeyLayout.edge_type(self.nxg)
+        nx.set_edge_attributes(self.nxg, name="edge_type", values=edge_type_mapping)
+
+        inclusive_flow = SankeyLayout.edge_weight(self.nxg)
+        nx.set_edge_attributes(self.nxg, name="weight", values=inclusive_flow)
+
+        entry_functions_mapping = SankeyLayout.entry_functions(self.nxg)
+        nx.set_edge_attributes(self.nxg, name="entry_callsites", values=entry_functions_mapping)
+
+        exit_functions_mapping = SankeyLayout.exit_functions(self.nxg)
+        nx.set_edge_attributes(self.nxg, name="exit_callsites", values=exit_functions_mapping)
+
+    # --------------------------------------------------------------------------
+    @staticmethod
+    def module_time(group_df, module_callsite_map, module):
+        """
+        For node attributes: Calculates the time spent inside the module overall
+        """
+        exc_time_sum = 0
+        inc_time_max = 0
+        for callsite in module_callsite_map[module]:
+            callsite_df = group_df.get_group((module, callsite))
+            max_inc_time = callsite_df["time (inc)"].max()
+            inc_time_max = max(inc_time_max, max_inc_time)
+            max_exc_time = callsite_df["time"].max()
+            exc_time_sum += max_exc_time
+        return {"Inclusive": inc_time_max, "Exclusive": exc_time_sum}
+
+    @staticmethod
+    def callsite_time(group_df, module, callsite):
+        """
+        For node attribute: Calculates the time spent by each callsite.
+        """
+        callsite_df = group_df.get_group((module, callsite))
+        max_inc_time = callsite_df["time (inc)"].max()
+        max_exc_time = callsite_df["time"].max()
+
+        return {"Inclusive": max_inc_time, "Exclusive": max_exc_time}
+
+    # --------------------------------------------------------------------------
     # Construct the networkX Graph from call paths.
     @staticmethod
     def _create_nxg_from_paths(df, path):
@@ -70,7 +127,7 @@ class SankeyLayout:
 
         for (callsite, path), path_df in paths_df:
             # Break cycles, if any.
-            path_list = SankeyLayout.break_cycles_in_paths(path)
+            path_list = SankeyLayout._break_cycles_in_paths(path)
 
             # loop through the path lists for each callsite.
             for callsite_idx, callsite in enumerate(path_list):
@@ -130,7 +187,7 @@ class SankeyLayout:
         return nxg
 
     @staticmethod
-    def break_cycles_in_paths(path):
+    def _break_cycles_in_paths(path):
         """
         Breaks cycles if present in the callpath.
 
@@ -171,21 +228,6 @@ class SankeyLayout:
             ret.append(dataMap[module][-1])
 
         return ret
-
-    # --------------------------------------------------------------------------
-    # Node attribute methods.
-    def _add_node_attributes(self):
-        """
-        Adds node attributes from the dataframe using the _COLUMNS.
-        """
-        ensemble_mapping = SankeyLayout._ensemble_map(df=self.supergraph.gf.df, nxg=self.nxg, columns=SankeyLayout._COLUMNS)
-        for idx, key in enumerate(ensemble_mapping):
-            nx.set_node_attributes(self.nxg, name=key, values=ensemble_mapping[key])
-
-        dataset_mapping = {}
-        for run in self.runs:
-            dataset_mapping[run] = SankeyLayout._dataset_map(df=self.supergraph.gf.df, nxg=self.nxg, tag=run, columns=SankeyLayout._COLUMNS)
-            nx.set_node_attributes(self.nxg, name=self.supergraph.tag, values=dataset_mapping[run])
 
     @staticmethod
     def _ensemble_map(df, nxg, columns=[]):
@@ -329,47 +371,7 @@ class SankeyLayout:
 
         return ret
 
-    @staticmethod
-    def module_time(group_df, module_callsite_map, module):
-        """
-        For node attributes: Calculates the time spent inside the module overall
-        """
-        exc_time_sum = 0
-        inc_time_max = 0
-        for callsite in module_callsite_map[module]:
-            callsite_df = group_df.get_group((module, callsite))
-            max_inc_time = callsite_df["time (inc)"].max()
-            inc_time_max = max(inc_time_max, max_inc_time)
-            max_exc_time = callsite_df["time"].max()
-            exc_time_sum += max_exc_time
-        return {"Inclusive": inc_time_max, "Exclusive": exc_time_sum}
-
-    @staticmethod
-    def callsite_time(group_df, module, callsite):
-        """
-        For node attribute: Calculates the time spent by each callsite.
-        """
-        callsite_df = group_df.get_group((module, callsite))
-        max_inc_time = callsite_df["time (inc)"].max()
-        max_exc_time = callsite_df["time"].max()
-
-        return {"Inclusive": max_inc_time, "Exclusive": max_exc_time}
-
     # --------------------------------------------------------------------------
-    # Edge attribute methods.
-    def _add_edge_attributes(self):
-        edge_type_mapping = SankeyLayout.edge_type(self.nxg)
-        nx.set_edge_attributes(self.nxg, name="edge_type", values=edge_type_mapping)
-
-        inclusive_flow = SankeyLayout.edge_weight(self.nxg)
-        nx.set_edge_attributes(self.nxg, name="weight", values=inclusive_flow)
-
-        entry_functions_mapping = SankeyLayout.entry_functions(self.nxg)
-        nx.set_edge_attributes(self.nxg, name="entry_callsites", values=entry_functions_mapping)
-
-        exit_functions_mapping = SankeyLayout.exit_functions(self.nxg)
-        nx.set_edge_attributes(self.nxg, name="exit_callsites", values=exit_functions_mapping)
-
     @staticmethod
     def edge_type(nxg):
         """
