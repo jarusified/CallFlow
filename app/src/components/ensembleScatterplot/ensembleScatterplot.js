@@ -6,7 +6,6 @@
 import tpl from "../../html/ensembleScatterplot/index.html";
 import * as d3 from "d3";
 import ToolTip from "./tooltip";
-import Settings from "../settings/settings";
 import * as utils from "../utils";
 import EventHandler from "../EventHandler";
 

@@ -5,7 +5,6 @@
  */
 import tpl from "../../html/auxiliaryFunction/index.html";
 import EventHandler from "../EventHandler";
-import Settings from "../settings/settings";
 import BoxPlot from "./boxplot";
 import * as d3 from "d3";
 import * as utils from "../utils";

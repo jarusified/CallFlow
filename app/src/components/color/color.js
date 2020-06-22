@@ -5,7 +5,7 @@
  */
 import * as d3 from "d3";
 import * as chroma from "chroma-js";
-import colorbrewer from "./colorbrewer";
+import colorbrewer from "./colorBrewer";
 
 export default class Color {
 	constructor(option, scale) {
