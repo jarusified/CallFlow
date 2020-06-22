@@ -5,7 +5,7 @@
  */
 import tpl from "../../html/scatterplot/index.html";
 import * as  d3 from "d3";
-import { lasso } from "../../thirdParty/lasso";
+import { lasso } from "../../lib/lasso";
 
 export default {
 	template: tpl,
