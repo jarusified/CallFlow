@@ -70,8 +70,8 @@ export default {
 			this.rankScaleHeight = this.boxHeight - this.histogramHeight;
 			this.rankScaleWidth = this.histogramWidth;
 
-			this.xAxisHeight = this.histogramWidth - (this.paddingFactor - 0.5) * this.padding.left;
-			this.yAxisHeight = this.histogramHeight - (this.paddingFactor - 0.5) * this.padding.left;
+			this.xAxisHeight = this.histogramWidth - (this.paddingFactor - 1.5) * this.padding.left;
+			this.yAxisHeight = this.histogramHeight - (this.paddingFactor - 1.5) * this.padding.left;
 
 			this.svg = d3.select("#" + this.svgID)
 				.attrs({
@@ -90,8 +90,10 @@ export default {
 		render(callsite) {
 			let store = this.$store.modules[this.$store.selectedTargetDataset][callsite];
 			let data = store[this.$store.selectedMetric]["prop_histograms"][this.$store.selectedProp]["ensemble"];
+			let mpiData = store[this.$store.selectedMetric]["data"];
+			this.numOfRanks = mpiData.length;
 
-			let temp = this.dataProcess(data);
+			let temp = this.dataProcess(data, mpiData);
 			this.xVals = temp[0];
 			this.freq = temp[1];
 			this.axis_x = temp[2];
@@ -146,19 +148,20 @@ export default {
 			});
 		},
 
-		dataProcess(data) {
+		dataProcess(data, mpiData) {
 			let axis_x = [];
 			let binContainsProcID = {};
-			let dataSorted = [];
-			let dataMin = 0;
-			let dataMax = 0;
+			let dataMin = data["x_min"];
+			let dataMax = data["x_max"];
 
-			const dataWidth = ((dataMax - dataMin) / this.$store.selectedBinCount);
-			for (let i = 0; i < this.$store.selectedBinCount; i++) {
+
+			const dataWidth = ((dataMax - dataMin) / data["x"].length);
+			console.log(dataWidth)
+			for (let i = 0; i < data["x"].length; i++) {
 				axis_x.push(dataMin + (i * dataWidth));
 			}
 
-			dataSorted.forEach((val, idx) => {
+			mpiData.forEach((val, idx) => {
 				let pos = Math.floor((val - dataMin) / dataWidth);
 				if (pos >= this.$store.selectedBinCount) {
 					pos = this.$store.selectedBinCount - 1;
@@ -166,7 +169,7 @@ export default {
 				if (binContainsProcID[pos] == null) {
 					binContainsProcID[pos] = [];
 				}
-				binContainsProcID[pos].push(data["rank"][idx]);
+				binContainsProcID[pos].push(idx);
 			});
 			return [data["x"], data["y"], axis_x, binContainsProcID];
 		},
@@ -370,11 +373,11 @@ export default {
 		},
 
 		rankLineScale() {
-			let rankCount = parseInt(this.$store.numOfRanks[this.$store.selectedTargetDataset]);
+			let rankCount = this.numOfRanks;
 
 			const ranklinescale = d3.scaleLinear()
 				.domain([0, rankCount])
-				.range([0, this.rankScaleWidth]);
+				.range([0, this.boxWidth - this.paddingFactor* this.padding.right]);
 
 			this.freq.forEach((freqVal, idx) => {
 				const processIDs = this.binContainsProcID[idx];
@@ -387,9 +390,9 @@ export default {
 					processIDs.sort((a, b) => a - b);
 
 					const groupArray = this.groupProcess(processIDs).array;
-					const binWidth = this.histogramXScale.bandwidth();
+					const binWidth = this.xScale.bandwidth();
 					const widthPerRank = binWidth / processIDs.length;
-					const binLocation = this.histogramXScale(this.xVals[idx]);
+					const binLocation = this.xScale(this.xVals[idx]);
 					let cumulativeBinSpace = 0;
 
 					groupArray.forEach((group) => {
@@ -411,6 +414,7 @@ export default {
 								"L " + topX2 + " " + topY +
 								"L " + botX4 + " " + botY +
 								"L " + botX3 + " " + botY;
+							console.log(line);
 						} else {
 							let start = group[0];
 							let end = group[1];
@@ -430,6 +434,7 @@ export default {
 								"L " + topX2 + " " + topY +
 								"L " + botX4 + " " + botY +
 								"L " + botX3 + " " + botY;
+							console.log(line);
 						}
 
 						rankLinesG.append("path")
@@ -439,15 +444,15 @@ export default {
 								return "grey";
 							})
 							.style("fill-opacity", 0.4)
-							.attr("transform", `translate(${this.axisLabelFactor * this.padding.left},${-this.padding.bottom})`);
+							.attr("transform", `translate(${this.paddingFactor * this.padding.left},${- 3 * this.padding.bottom})`);
 					});
 				}
 			});
 
 			const rankLineAxis = d3.axisBottom(ranklinescale)
-				.ticks(this.$store.selectedBinCount)
+				.ticks(10)
 				.tickFormat((d, i) => {
-					if (i % 10 == 0 || i == this.$store.numOfRanks[this.$store.selectedTargetDataset] - 1) {
+					if (i % 10 == 0 || i == this.numOfRanks - 1) {
 						return d;
 					}
 				});
@@ -455,7 +460,7 @@ export default {
 			const rankLineAxisLine = this.svg.append("g")
 				.attr("class", "histogram-rank-axis")
 				.attr("id", "rankAxis")
-				.attr("transform", `translate(${this.paddingFactor * this.padding.left},${this.boxHeight - this.padding.bottom})`)
+				.attr("transform", `translate(${this.paddingFactor * this.padding.left},${this.boxHeight - 3 * this.padding.bottom})`)
 				.call(rankLineAxis);
 
 			rankLineAxisLine.selectAll("path")

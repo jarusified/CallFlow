@@ -236,7 +236,6 @@ export default {
 
 		drawInnerCircle() {
 			let self = this;
-			let selected = undefined;
 			this.circles = this.svg.selectAll("circle")
 				.data(this.$store.projection)
 				.enter()
@@ -563,8 +562,8 @@ export default {
 
 		clear() {
 			d3.select("#parameter-projection-tooltip").remove();
-			this.svg.selectAll('.dot').remove()
-			this.svg.selectAll('.outer-circle').remove()
+			// this.svg.selectAll('.dot').remove()
+			d3.selectAll('.outer-circle').remove()
 			this.svg.selectAll('.lasso').remove()
 			this.svg.selectAll('.projection-axis-label').remove()
 		}

@@ -3,8 +3,9 @@
  * CallFlow Project Developers. See the top-level LICENSE file for details.
  * SPDX-License-Identifier: MIT
  */
-import tpl from "../../html/ensembleScatterplot.html";
 import * as d3 from "d3";
+
+import tpl from "../../html/ensembleScatterplot.html";
 import ToolTip from "./tooltip";
 import * as utils from "../utils";
 import EventHandler from "../EventHandler";
@@ -15,7 +16,6 @@ export default {
 	components: {
 		ToolTip,
 	},
-
 	data: () => ({
 		padding: {
 			top: 10,

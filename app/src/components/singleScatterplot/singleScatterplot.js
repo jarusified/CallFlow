@@ -63,11 +63,11 @@ export default {
 
 			this.svg = d3.select("#" + this.svgID)
 				.attr("width", this.boxWidth)
-				.attr("height", this.boxHeight)
+				.attr("height", this.boxHeight - this.padding.top)
 				.attr("transform", "translate(" + this.padding.left + "," + this.padding.top + ")");
 
-			this.xAxisHeight = this.boxWidth - (this.paddingFactor) * this.padding.left;
-			this.yAxisHeight = this.boxHeight - (this.paddingFactor) * this.padding.left;
+			this.xAxisHeight = this.boxWidth - (4) * this.padding.left;
+			this.yAxisHeight = this.boxHeight - (4) * this.padding.left;
 
 			EventHandler.$emit("single_scatterplot", {
 				module: Object.keys(this.$store.modules[this.$store.selectedTargetDataset])[0],
@@ -91,10 +91,12 @@ export default {
 			this.yArray = temp[5];
 
 			this.xScale = d3.scaleLinear()
-				.domain(this.xArray)
-				.range([this.paddingFactor * this.padding.left, this.xAxisHeight]);
+				.domain([this.xMin, this.xMax])
+				.range([this.padding.left, this.xAxisHeight]);
 
-			this.yScale = d3.scaleLinear().domain(this.yArray).range([this.yAxisHeight, this.padding.top]);
+			this.yScale = d3.scaleLinear()
+				.domain([this.yMin, this.yMax])
+				.range([this.yAxisHeight, this.padding.top]);
 
 			this.regression = this.leastSquares(this.xArray, this.yArray);
 			this.xAxis();
@@ -213,7 +215,7 @@ export default {
 			let label = "(e+" + this.x_max_exponent + ") " + "Exclusive Runtime (" + "\u03BCs)";
 			this.svg.append("text")
 				.attr("class", "scatterplot-axis-label")
-				.attr("x", this.boxWidth)
+				.attr("x", this.boxWidth - this.padding.right)
 				.attr("y", this.yAxisHeight + 3 * this.padding.top)
 				.style("font-size", "12px")
 				.style("text-anchor", "end")
@@ -232,10 +234,10 @@ export default {
 					}
 				});
 
-			var xAxisLine = this.svg.append("g")
+			let xAxisLine = this.svg.append("g")
 				.attr("class", "axis")
 				.attr("id", "xAxis")
-				.attr("transform", "translate(" + 0 + "," + this.yAxisHeight + ")")
+				.attr("transform", "translate(" + 2 * this.padding.left + "," + this.yAxisHeight + ")")
 				.call(xAxis);
 
 			xAxisLine.selectAll("path")
@@ -263,7 +265,7 @@ export default {
 				.attr("class", "scatterplot-axis-label")
 				.attr("transform", "rotate(-90)")
 				.attr("x", -this.padding.top)
-				.attr("y", this.padding.left)
+				.attr("y", 0.5 * this.padding.left)
 				.style("text-anchor", "end")
 				.style("font-size", "12px")
 				.text(label);
