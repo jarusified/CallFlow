@@ -214,7 +214,7 @@ export default {
 			let exponent_string = this.superscript[this.x_max_exponent];
 			let label = "(e+" + this.x_max_exponent + ") " + "Exclusive Runtime (" + "\u03BCs)";
 			this.svg.append("text")
-				.attr("class", "scatterplot-axis-label")
+				.attr("class", "axis-label")
 				.attr("x", this.boxWidth - this.padding.right)
 				.attr("y", this.yAxisHeight + 3 * this.padding.top)
 				.style("font-size", "12px")
@@ -228,16 +228,16 @@ export default {
 			const xAxis = d3.axisBottom(this.xScale)
 				.ticks(10)
 				.tickFormat((d, i) => {
-					// if (i % 3 == 0) {
 					let runtime = utils.formatRuntimeWithExponent(d, self.x_max_exponent);
 					return `${runtime[0]}`;
-					// }
 				});
 
 			let xAxisLine = this.svg.append("g")
-				.attr("class", "axis")
-				.attr("id", "xAxis")
-				.attr("transform", "translate(" + this.paddingFactor * this.padding.left + "," + this.yAxisHeight + ")")
+				.attrs({
+					"class": "axis",
+					"id": "xAxis",
+					"transform": "translate(" + this.paddingFactor * this.padding.left + "," + this.yAxisHeight + ")"
+				})
 				.call(xAxis);
 
 			xAxisLine.selectAll("path")
@@ -262,10 +262,12 @@ export default {
 			let exponent_string = this.superscript[this.y_max_exponent];
 			let label = "(e+" + this.y_max_exponent + ") " + "Inclusive Runtime (" + "\u03BCs)";
 			this.svg.append("text")
-				.attr("class", "scatterplot-axis-label")
-				.attr("transform", "rotate(-90)")
-				.attr("x", -this.padding.top)
-				.attr("y", 0.5 * this.padding.left)
+				.attrs({
+					"class": "axis-label",
+					"transform": "rotate(-90)",
+					"x": -this.padding.top,
+					"y": 0.5 * this.padding.left,
+				})
 				.style("text-anchor", "end")
 				.style("font-size", "12px")
 				.text(label);
@@ -278,10 +280,8 @@ export default {
 			let yAxis = d3.axisLeft(this.yScale)
 				.ticks(10)
 				.tickFormat((d, i) => {
-					// if (i % 3 == 0 || i == tickCount - 1) {
 					let runtime = utils.formatRuntimeWithExponent(d, self.y_max_exponent);
 					return `${runtime[0]}`;
-					// }
 				});
 
 			var yAxisLine = this.svg.append("g")
@@ -320,11 +320,12 @@ export default {
 			this.svg.append("g")
 				.attr("class", "trend-line")
 				.append("path")
-				.datum(this.regressionY["y_res"])
+				.datum(this.regression["y_res"])
 				.attr("d", line)
-				.style("stroke", "black")
+				.style("stroke", this.$store.color.intermediate)
 				.style("stroke-width", "1px")
-				.style("opacity", 0.5);
+				.style("opacity", 0.5)
+				.attr("transform", "translate(" + this.paddingFactor * this.padding.left + ", 0)")
 		},
 
 		dots() {
@@ -363,8 +364,8 @@ export default {
 			d3.selectAll(".dot").remove();
 			d3.selectAll(".axis").remove();
 			d3.selectAll(".trend-line").remove();
-			d3.selectAll(".axis-label").remove();
-			d3.selectAll(".text").remove();
+			// d3.selectAll('.axis-label"').remove();
+			this.svg.selectAll("text").remove();
 		},
 	}
 };

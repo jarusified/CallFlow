@@ -564,7 +564,6 @@ export default {
 			d3.selectAll(".trend-line").remove();
 			d3.selectAll(".scatterplot-axis-label").remove();
 			d3.selectAll(".text").remove();
-			d3.selectAll(".scatterplot-axis-label").remove();
 		},
 	}
 };
