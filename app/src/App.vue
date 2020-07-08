@@ -48,7 +48,7 @@
                 </template>
               </v-data-table>
             </v-card>
-            <v-card tile>
+            <!-- <v-card tile>
               <v-card-title>Module Callsite Mapping</v-card-title>
               <v-data-table
                 dense
@@ -78,7 +78,7 @@
                   <td :colspan="headers.length">More info about {{ item.name }}</td>
                 </template>
               </v-data-table>
-            </v-card>
+            </v-card>-->
           </v-container>
         </v-layout>
       </v-content>
