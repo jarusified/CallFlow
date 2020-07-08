@@ -49,9 +49,8 @@ export default {
 	mounted() {
 		let self = this;
 		EventHandler.$on("single_histogram", function (data) {
-			self.clear();
-			console.debug("Single histogram: ", data["module"]);
-			self.render(data["module"]);
+			console.log("Single histogram: ", data["module"]);
+			self.visualize(data["module"]);
 		});
 	},
 
@@ -87,9 +86,9 @@ export default {
 			});
 		},
 
-		render(callsite) {
+		setupScale(callsite) {
 			let store = this.$store.modules[this.$store.selectedTargetDataset][callsite];
-			let data = store[this.$store.selectedMetric]["prop_histograms"][this.$store.selectedProp]["ensemble"];
+			let data = store[this.$store.selectedMetric]["prop_histograms"]["rank"]["target"];
 			let mpiData = store[this.$store.selectedMetric]["data"];
 			this.numOfRanks = mpiData.length;
 
@@ -118,23 +117,22 @@ export default {
 					.range([this.yAxisHeight, this.padding.top]);
 				this.logScaleBool = true;
 			}
-			this.visualize();
 		},
 
 		clear() {
 			d3.selectAll(".single-histogram-bar").remove();
-			d3.selectAll(".single-histogram-target").remove();
 			d3.select(".x-axis").remove();
 			d3.select(".y-axis").remove();
 			d3.selectAll(".histogram-axis-label").remove();
 			d3.selectAll(".binRank").remove();
 			d3.selectAll(".lineRank").remove();
-			d3.selectAll(".target_lineRank").remove();
 			d3.selectAll(".tick").remove();
-			this.$refs.ToolTip.clear();
+			// this.$refs.ToolTip.clear();
 		},
 
-		visualize() {
+		visualize(callsite) {
+			this.clear();
+			this.setupScale(callsite)
 			this.bars();
 			this.xAxis();
 			this.yAxis();
@@ -154,9 +152,7 @@ export default {
 			let dataMin = data["x_min"];
 			let dataMax = data["x_max"];
 
-
 			const dataWidth = ((dataMax - dataMin) / data["x"].length);
-			console.log(dataWidth)
 			for (let i = 0; i < data["x"].length; i++) {
 				axis_x.push(dataMin + (i * dataWidth));
 			}
@@ -240,12 +236,12 @@ export default {
 
 		bars() {
 			let self = this;
-			this.svg.selectAll(".single-target")
+			this.svg.selectAll(".single-histogram-bar")
 				.data(this.freq)
 				.enter()
 				.append("rect")
-				.attr("class", "single-histogram-bar single-target")
 				.attrs({
+					"class": "single-histogram-bar",
 					"x": (d, i) => { return this.xScale(this.xVals[i]); },
 					"y": (d, i) => { return this.yScale(d); },
 					"width": this.xScale.bandwidth(),
@@ -330,12 +326,7 @@ export default {
 			const yAxis = d3.axisLeft(this.yScale)
 				.ticks(10)
 				.tickFormat((d, i) => {
-					if (d == 1) {
-						return d;
-					}
-					else if (d % 10 == 0) {
-						return d;
-					}
+					return d
 				});
 
 			this.svg.append("text")
@@ -376,8 +367,8 @@ export default {
 			let rankCount = this.numOfRanks;
 
 			const ranklinescale = d3.scaleLinear()
-				.domain([0, rankCount])
-				.range([0, this.boxWidth - this.paddingFactor* this.padding.right]);
+				.domain([0, rankCount - 1])
+				.range([this.paddingFactor * this.padding.left, this.xAxisHeight]);
 
 			this.freq.forEach((freqVal, idx) => {
 				const processIDs = this.binContainsProcID[idx];
@@ -391,7 +382,7 @@ export default {
 
 					const groupArray = this.groupProcess(processIDs).array;
 					const binWidth = this.xScale.bandwidth();
-					const widthPerRank = binWidth / processIDs.length;
+					const widthPerRank = binWidth / (rankCount);
 					const binLocation = this.xScale(this.xVals[idx]);
 					let cumulativeBinSpace = 0;
 
@@ -414,7 +405,6 @@ export default {
 								"L " + topX2 + " " + topY +
 								"L " + botX4 + " " + botY +
 								"L " + botX3 + " " + botY;
-							console.log(line);
 						} else {
 							let start = group[0];
 							let end = group[1];
@@ -434,7 +424,6 @@ export default {
 								"L " + topX2 + " " + topY +
 								"L " + botX4 + " " + botY +
 								"L " + botX3 + " " + botY;
-							console.log(line);
 						}
 
 						rankLinesG.append("path")
@@ -444,7 +433,7 @@ export default {
 								return "grey";
 							})
 							.style("fill-opacity", 0.4)
-							.attr("transform", `translate(${this.paddingFactor * this.padding.left},${- 3 * this.padding.bottom})`);
+							.attr("transform", `translate(${0},${- 3 * this.padding.bottom})`);
 					});
 				}
 			});
@@ -452,15 +441,14 @@ export default {
 			const rankLineAxis = d3.axisBottom(ranklinescale)
 				.ticks(10)
 				.tickFormat((d, i) => {
-					if (i % 10 == 0 || i == this.numOfRanks - 1) {
+					if (d % 1 == 0)
 						return d;
-					}
 				});
 
 			const rankLineAxisLine = this.svg.append("g")
 				.attr("class", "histogram-rank-axis")
 				.attr("id", "rankAxis")
-				.attr("transform", `translate(${this.paddingFactor * this.padding.left},${this.boxHeight - 3 * this.padding.bottom})`)
+				.attr("transform", `translate(${0},${this.boxHeight - 3 * this.padding.bottom})`)
 				.call(rankLineAxis);
 
 			rankLineAxisLine.selectAll("path")
@@ -488,8 +476,8 @@ export default {
 
 			this.brush = d3.brushX()
 				.extent([
-					[this.axisLabelFactor * this.padding.left, this.histogramHeight - this.padding.top],
-					[this.boxWidth, this.boxHeight - this.padding.top]
+					[this.paddingFactor * this.padding.left, this.histogramHeight],
+					[this.paddingFactor * this.padding.left + this.xAxisHeight - (this.paddingFactor) * this.padding.left, this.histogramHeight + this.rankScaleHeight]
 				])
 				.on("brush", this.brushing)
 				.on("end", this.brushend);
@@ -511,12 +499,12 @@ export default {
 
 		brushing() {
 			const brushScale = d3.scaleLinear()
-				.domain(this.histogramXScale.domain())
-				.range(this.histogramXScale.range());
+				.domain(this.xScale.domain())
+				.range(this.xScale.range());
 
 			let brushStart = d3.event.selection.map(brushScale.invert)[0];
 			let brushEnd = d3.event.selection.map(brushScale.invert)[1];
-			let brushPoints = this.histogramXScale.domain().length;
+			let brushPoints = this.xScale.domain().length;
 
 			this.localBrushStart = Math.floor(brushStart * brushPoints);
 			this.localBrushEnd = Math.ceil(brushEnd * brushPoints);

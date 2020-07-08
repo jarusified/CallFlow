@@ -29,9 +29,6 @@
               <v-card-title>Data Path: {{ data.data_path }}</v-card-title>
             </v-card>
             <v-card tile>
-              <v-card-title>Run names: {{ data.dataset_names }}</v-card-title>
-            </v-card>
-            <v-card tile>
               <v-card-title>Runtime Information</v-card-title>
               <v-data-table
                 dense

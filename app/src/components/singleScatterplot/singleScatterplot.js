@@ -92,7 +92,7 @@ export default {
 
 			this.xScale = d3.scaleLinear()
 				.domain([this.xMin, this.xMax])
-				.range([this.padding.left, this.xAxisHeight]);
+				.range([0, this.xAxisHeight]);
 
 			this.yScale = d3.scaleLinear()
 				.domain([this.yMin, this.yMax])
@@ -228,16 +228,16 @@ export default {
 			const xAxis = d3.axisBottom(this.xScale)
 				.ticks(10)
 				.tickFormat((d, i) => {
-					if (i % 3 == 0) {
-						let runtime = utils.formatRuntimeWithExponent(d, self.x_max_exponent);
-						return `${runtime[0]}`;
-					}
+					// if (i % 3 == 0) {
+					let runtime = utils.formatRuntimeWithExponent(d, self.x_max_exponent);
+					return `${runtime[0]}`;
+					// }
 				});
 
 			let xAxisLine = this.svg.append("g")
 				.attr("class", "axis")
 				.attr("id", "xAxis")
-				.attr("transform", "translate(" + 2 * this.padding.left + "," + this.yAxisHeight + ")")
+				.attr("transform", "translate(" + this.paddingFactor * this.padding.left + "," + this.yAxisHeight + ")")
 				.call(xAxis);
 
 			xAxisLine.selectAll("path")
@@ -278,16 +278,16 @@ export default {
 			let yAxis = d3.axisLeft(this.yScale)
 				.ticks(10)
 				.tickFormat((d, i) => {
-					if (i % 3 == 0 || i == tickCount - 1) {
-						let runtime = utils.formatRuntimeWithExponent(d, self.y_max_exponent);
-						return `${runtime[0]}`;
-					}
+					// if (i % 3 == 0 || i == tickCount - 1) {
+					let runtime = utils.formatRuntimeWithExponent(d, self.y_max_exponent);
+					return `${runtime[0]}`;
+					// }
 				});
 
 			var yAxisLine = this.svg.append("g")
 				.attr("id", "yAxis")
 				.attr("class", "axis")
-				.attr("transform", "translate(" + 3 * this.padding.left + ", 0)")
+				.attr("transform", "translate(" + this.paddingFactor * this.padding.left + ", 0)")
 				.call(yAxis);
 
 			yAxisLine.selectAll("path")
@@ -340,7 +340,9 @@ export default {
 				.attr("cy", function (d, i) {
 					return self.yScale(self.yArray[i]);
 				})
-				.style("fill", this.$store.runtimeColor.intermediate);
+				.style("fill", this.$store.runtimeColor.intermediate)
+				.style("stroke", '#202020')
+				.style("stroke-width", 0.5);
 		},
 
 		correlationText() {
