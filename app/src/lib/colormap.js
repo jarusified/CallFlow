@@ -57,7 +57,7 @@ export default {
 
 		_legends() {
 			this.clearLegends();
-			if (this.$store.showTarget && !this.$store.comparisonMode && this.$store.selectedMode == "Ensemble" && this.$store.selectedFormat == "SuperGraph") {
+			if (this.$store.showTarget && !this.$store.comparisonMode && this.$store.selectedMode === "Ensemble" && this.$store.selectedFormat == "SuperGraph") {
 				this.drawLegend("Target run", this.containerWidth - this.padding.right, this.containerHeight - 4 * this.padding.bottom, this.$store.distributionColor.target);
 			}
 			if (this.$store.selectedMode == "Ensemble" && this.$store.selectedFormat == "SuperGraph") {
@@ -88,8 +88,8 @@ export default {
 				text = "Rank Difference colormap";
 				yOffsetCount = 2;
 			}
-			
-			if(this.color.type !== "MeanGradients"){
+
+			if (this.color.type !== "MeanGradients") {
 				this.colorMinText = utils.formatRuntimeWithUnits(this.colorMin);
 				this.colorMaxText = utils.formatRuntimeWithUnits(this.colorMax);
 			}

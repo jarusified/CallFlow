@@ -261,20 +261,18 @@ export default {
 			this.$store.selectedNode = node;
 			this.$store.selectedModule = node.module;
 			this.$store.selectedName = node.name;
-
-
 		},
 
 		mouseover(node) {
 			// this.$refs.ToolTip.visualize(self.graph, node)
-			if (this.$store.selectedMode == "Ensemble") {
+			if (this.$store.selectedMode == "Ensemble" && this.$store.comparisonMode == false) {
 				this.$refs.Guides.visualize(node, "temporary");
 			}
 		},
 
 		mouseout(node) {
 			// this.$refs.ToolTip.clear()
-			if (this.$store.selectedMode == "Ensemble") {
+			if (this.$store.selectedMode == "Ensemble" && this.$store.comparisonMode == false) {
 				this.$refs.Guides.clear(node, "temporary");
 				if (this.permanentGuides == false) {
 					d3.selectAll(".ensemble-edge")

@@ -15,6 +15,7 @@ export default {
 	props: [],
 	data: () => ({
 		id: null,
+		svgId: null,
 		ts: null,
 		config: null,
 		vis: null,
