@@ -520,18 +520,10 @@ export default {
 		clear() {
 			if (this.selectedMode == "Ensemble") {
 				if (this.selectedFormat == "CCT") {
-					this.clearComponents(this.currentSingleCCTComponents);
+					this.clearComponents(this.currentEnsembleCCTComponents);
 				}
 				else if (this.selectedFormat == "SuperGraph") {
-					this.clearComponents(this.currentSingleSuperGraphComponents);
-				}
-			}
-			else if (this.selectedMode == "Single") {
-				if (this.selectedFormat == "CCT") {
-					this.clearComponents(this.currentSingleCCTComponents);
-				}
-				else if (this.selectedFormat == "SuperGraph") {
-					this.clearComponents(this.currentSingleSuperGraphComponents);
+					this.clearComponents(this.currentEnsembleSuperGraphComponents);
 				}
 			}
 		},
@@ -543,14 +535,6 @@ export default {
 				}
 				else if (this.selectedFormat == "SuperGraph") {
 					this.clearComponents(this.currentEnsembleCCTComponents);
-				}
-			}
-			else if (this.selectedMode == "Single") {
-				if (this.selectedFormat == "CCT") {
-					this.clearComponents(this.currentSingleSuperGraphComponents);
-				}
-				else if (this.selectedFormat == "SuperGraph") {
-					this.clearComponents(this.currentSingleCCTComponents);
 				}
 			}
 		},
@@ -673,7 +657,7 @@ export default {
 		},
 
 		updateTargetDataset() {
-			this.clearLocal();
+			this.clear();
 			this.$store.selectedTargetDataset = this.selectedTargetDataset;
 			console.debug("[Update] Target Dataset: ", this.selectedTargetDataset);
 			this.init();

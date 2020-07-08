@@ -36,8 +36,8 @@ export default {
 	methods: {
 		init(color) {
 			this.color = color;
-			this.colorMin = color.getScale().domain()[0];
-			this.colorMax = color.getScale().domain()[1];
+			this.colorMin = this.color.getScale().domain()[0];
+			this.colorMax = this.color.getScale().domain()[1];
 
 			this.containerWidth = this.$store.viewWidth / 2;
 			this.containerHeight = this.$store.viewHeight - this.$parent.margin.top - this.$parent.margin.bottom;
@@ -87,6 +87,15 @@ export default {
 			else if (this.color.type == "RankDiff") {
 				text = "Rank Difference colormap";
 				yOffsetCount = 2;
+			}
+			
+			if(this.color.type !== "MeanGradients"){
+				this.colorMinText = utils.formatRuntimeWithUnits(this.colorMin);
+				this.colorMaxText = utils.formatRuntimeWithUnits(this.colorMax);
+			}
+			else {
+				this.colorMinText = this.colorMin;
+				this.colorMaxText = this.colorMax;
 			}
 			this.drawColorMap(text, this.containerWidth - this.padding.right, this.containerHeight - this.padding.bottom * yOffsetCount);
 		},
@@ -155,7 +164,7 @@ export default {
 					"class": "colormap-text",
 					"transform": `translate(${x}, ${y})`,
 				})
-				.text(utils.formatRuntimeWithUnits(this.colorMin));
+				.text(this.colorMinText);
 
 			this.svg.append("text")
 				.style("fill", "black")
@@ -168,7 +177,7 @@ export default {
 					"class": "colormap-text",
 					"transform": `translate(${x + this.width}, ${y})`,
 				})
-				.text(utils.formatRuntimeWithUnits(this.colorMax));
+				.text(this.colorMaxText);
 		},
 
 		clearColorMap() {

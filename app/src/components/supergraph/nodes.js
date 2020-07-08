@@ -126,7 +126,7 @@ export default {
 
 			this.ensemblePath();
 			this.text();
-			if (this.$store.showTarget && this.$store.selectedMode == "Ensemble") {
+			if (this.$store.showTarget && this.$store.selectedMode === "Ensemble") {
 				this.$refs.TargetLine.init(this.graph.nodes);
 
 				if (this.$store.comparisonMode == false) {
@@ -146,14 +146,15 @@ export default {
 			}
 		},
 
+		// Attach the svg into the node object. 
 		postVis() {
 			for (let node of this.graph.nodes) {
-				node.svg = this.containerG.select("#ensemble-callsite-" + node.client_idx);
+				node.svg = this.containerG.select("#callsite-" + node.client_idx);
 			}
 		},
 
 		clearRectangle() {
-			d3.selectAll(".ensemble-callsite").remove();
+			d3.selectAll(".callsite").remove();
 		},
 
 		setEncoding(encoding, data) {
