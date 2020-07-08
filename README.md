@@ -41,14 +41,14 @@ See [data examples](https://github.com/jarusified/CallFlow/tree/v2/data)
 To process the datasets,
 
 ```
-cd callflow/server
-python3 app.py --config {config_file_path} --process
+cd server
+python3 main.py --config {config_file_path} --process
 ```
 
 To run the server,
 
 ```
-cd callflow/server
+cd server
 python3 app.py --config {config_file_path}
 ```
 
