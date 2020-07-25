@@ -22,104 +22,92 @@ import callflow
 LOGGER = callflow.get_logger(__name__)
 
 
-class Group(callflow.GraphFrame):
-    def __init__(self, gf=None, group_by="name"):
+class Group:
+    """
+    Group operation on the CallFlow SuperGraph.
+    1. Loops on the callflow.SuperGraph.nxg and decomposes the path to 
+    perform path decomposition at different levels of granularity. 
+    2. Currently, two kinds of granularity is considered 
+        a. Module level callgraph.
+        b. CCT hierarchy inside a Module.
+    3. The collected information on the granularities are added back to 
+    the Hatchet's GraphFrame.
+    4. The following columns are appended to the DataFrame.
+        a. group_path
+        b. component_path
+        c. component_level
+        d. is_entry
+    """
+
+    def __init__(self, gf, group_by="name"):
+        assert isinstance(gf, callflow.GraphFrame)
+        # Set self.gf, the groupby operation needs the graphframe.
         self.gf = gf
+
+        # Check if there is a column in df, group_by.
+        assert group_by in self.gf.df.columns
         self.group_by = group_by
 
-        # Data.
-        self.callsite_module_map = self.gf.df.set_index("name")["module"].to_dict()
-        self.callsite_path_map = self.gf.df.set_index("name")["path"].to_dict()
+        # Computes performs the path decomposition on the SuperGraph.
+        self.compute(gf, group_by)
 
-        # Variables used by grouping operation.
-        self.entry_funcs = {}
-        self.other_funcs = {}
-        # TODO: remove this.
-        # self.module_id_map = {}
-
-        self.compute()
-
-    def compute(self):
+    @staticmethod
+    # TODO: We need to traverse the graph. Not just consider the edges. 
+    def compute(gf, group_by):
         group_path = {}
         component_path = {}
         component_level = {}
         entry_func = {}
         show_node = {}
-        node_name = {}
         module = {}
-        change_name = {}
 
-        # module_idx = {}
-        # module_id_map = {}
-        # module_count = 0
+        callsite_group_dict = gf.df.set_index("name")[group_by].to_dict()
 
-        LOGGER.debug(
-            f"Nodes: {len(self.gf.nxg.nodes())}, Edges: {len(self.gf.nxg.edges())}"
-        )
-
-        for idx, edge in enumerate(self.gf.nxg.edges()):
+        for idx, edge in enumerate(gf.nxg.edges()):
+            """
+            Performs path decomposition on edge
+            """
             snode = edge[0]
             tnode = edge[1]
 
+            # TODO: Need to move this to utils.
             if "/" in snode:
                 snode = snode.split("/")[-1]
             if "/" in tnode:
                 tnode = tnode.split("/")[-1]
 
-            spath = self.callsite_path_map[snode]
-            tpath = self.callsite_path_map[tnode]
+            spath = callsite_group_dict[snode]
+            tpath = callsite_group_dict[tnode]
+            
+            # Set the group_path. 
+            group_path[snode] = Group._create_group_path(spath)
+            group_path[tnode] = Group._create_group_path(tpath)
 
-            stage1 = time.perf_counter()
-            temp_group_path_results = self.create_group_path(spath)
-            group_path[snode] = temp_group_path_results
-            stage2 = time.perf_counter()
+            # Set the component_path.
+            component_path[snode] = Group._create_component_path(spath, group_path[snode])        
+            component_path[tnode] = Group._create_component_path(tpath, group_path[tnode])
 
-            stage3 = time.perf_counter()
-            component_path[snode] = self.create_component_path(spath, group_path[snode])
+            # TODO: Remove this. We can calculate the len in the client.
             component_level[snode] = len(component_path[snode])
-            stage4 = time.perf_counter()
-
-            temp_group_path_results = self.create_group_path(tpath)
-            group_path[tnode] = temp_group_path_results
-
-            component_path[tnode] = self.create_component_path(tpath, group_path[tnode])
             component_level[tnode] = len(component_path[tnode])
 
             if component_level[snode] == 2:
                 entry_func[snode] = True
-                show_node[snode] = True
             else:
                 entry_func[snode] = False
-                show_node[snode] = False
-
-            node_name[snode] = self.callsite_module_map[snode] + "=" + snode
-
-            # TODO: remove if not used.
-            # if module[tnode] not in module_id_map:
-            #     module_count += 1
-            #     module_id_map[module[tnode]] = module_count
-            #     module_idx[tnode] = module_id_map[module[tnode]]
-            # else:
-            #     module_idx[tnode] = module_id_map[module[tnode]]
 
             if component_level[tnode] == 2:
-                entry_func[tnode] = True
-                show_node[tnode] = True
+                is_entry[tnode] = True
             else:
-                entry_func[tnode] = False
-                show_node[tnode] = False
-
-            node_name[tnode] = self.callsite_module_map[snode] + "=" + tnode
+                is_entry[tnode] = False
 
         self.update_df("group_path", group_path)
         self.update_df("component_path", component_path)
-        self.update_df("show_node", entry_func)
-        self.update_df("vis_name", node_name)
         self.update_df("component_level", component_level)
-        # self.update_df("mod_index", module_idx)
         self.update_df("entry_function", entry_func)
 
-    def create_group_path(self, path):
+    @staticmethod
+    def _create_group_path(path):
         if isinstance(path, str):
             path = make_list(path)
         group_path = []
@@ -128,7 +116,6 @@ class Group(callflow.GraphFrame):
             if idx == 0:
                 # Assign the first callsite as from_callsite and not push into an array.
                 from_callsite = callsite
-                # from_module = self.entire_df.loc[self.entire_df['name'] == from_callsite]['module'].unique()[0]
                 from_module = self.callsite_module_map[from_callsite]
 
                 # Store the previous module to check the hierarchy later.
@@ -207,14 +194,26 @@ class Group(callflow.GraphFrame):
 
         return group_path
 
-    def create_component_path(self, path, group_path):
+    @staticmethod
+    def _clean_node_name(node):
+        return node.split("/")[-1]
+        
+
+    @staticmethod
+    def _create_component_path(self, path, group_path):
+        """
+        
+        """
+        assert isinstance(path, list)
+        assert isinstance(group_path, list)
+
+        callsite_module_map = self.gf.df.set_index("name")[group_by].to_dict()
+
         component_path = []
         component_module = group_path[len(group_path) - 1].split("=")[0]
 
         for idx, node in enumerate(path):
-            node_func = node
-            if "/" in node:
-                node = node.split("/")[-1]
+            node = Group._clean_node_name(node)
             module = self.callsite_module_map[node]
             if component_module == module:
                 component_path.append(node_func)
@@ -222,7 +221,11 @@ class Group(callflow.GraphFrame):
         component_path.insert(0, component_module)
         return tuple(component_path)
 
-    def update_df(self, col_name, mapping):
+    # TODO: Move to utils folder.
+    def _append_column_to_dataframe(self, col_name, mapped_dict):
+        """
+        Update the dataframe with the mapped_dict
+        """
         self.gf.df[col_name] = self.gf.df["name"].apply(
-            lambda node: mapping[node] if node in mapping.keys() else ""
+            lambda node: mapped_dict[node] if node in mapped_dict.keys() else ""
         )

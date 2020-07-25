@@ -24,6 +24,8 @@ from callflow.modules import (
     ParameterProjection,
     DiffView,
 )
+from callflow.operations import Group
+
 
 LOGGER = callflow.get_logger(__name__)
 
@@ -118,8 +120,8 @@ class CallFlow:
         # Props is later return to client app on "init" request.
         self.add_basic_info_to_props()
 
-    # TODO: Need to use reprocess_single. Address in the next pass. 
-    def _process_single(self, dataset, reprocess_single=True):
+    # TODO: Need to incorporate reprocess_single. Address in the next pass. 
+    def _process_single(self, dataset, filter=True, reprocess_single=True):
         """
         Single dataset processing.
         """
@@ -136,7 +138,8 @@ class CallFlow:
             supergraph.filter_gf(mode="single")
 
         # Group by module.
-        supergraph.group_gf(group_by="module")
+        # TODO: use self.props.
+        Group(supergraph.gf, group_by="module").gf
 
         # Store the graphframe.
         supergraph.write_gf("entire")
