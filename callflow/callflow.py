@@ -41,7 +41,14 @@ class CallFlow:
         # Convert config json to props. Never touch self.config ever.
         self.props = json.loads(json.dumps(config, default=lambda o: o.__dict__))
 
+        # True, if ensemble mode is enabled, else False.
         self.ensemble = ensemble
+
+        # Dict of supergraphs.
+        self.supergraphs = {}
+
+        # List the datasets that are in CallFlow's vis interface.
+        self.datasets_in_vis = self.props["dataset_names"]
 
     # --------------------------------------------------------------------------
     # Processing methods.
@@ -80,18 +87,18 @@ class CallFlow:
         """
         pass
 
-    def process(self):
+    def process(self, reprocess_single=True, reprocess_ensemble=True):
         """
         Process the datasets based on the format (i.e., either single or ensemble)
         """
-        ndatasets = len(self.props["dataset_names"])
+        ndatasets = len(self.datasets_in_vis)
         assert self.ensemble == (ndatasets > 1)
 
         self._create_dot_callflow_folder()
         if self.ensemble:
-            self._process_ensemble(self.props["dataset_names"])
+            self._process_ensemble(self.datasets_in_vis, reprocess_single, reprocess_ensemble)
         else:
-            self._process_single(self.props["dataset_names"][0])
+            self._process_single(self.props["dataset_names"][0], reprocess_single)
 
     def load(self):
         """
@@ -111,7 +118,8 @@ class CallFlow:
         # Props is later return to client app on "init" request.
         self.add_basic_info_to_props()
 
-    def _process_single(self, dataset):
+    # TODO: Need to use reprocess_single. Address in the next pass. 
+    def _process_single(self, dataset, reprocess_single=True):
         """
         Single dataset processing.
         """
@@ -124,7 +132,8 @@ class CallFlow:
         supergraph.process_gf()
 
         # Filter by inclusive or exclusive time.
-        supergraph.filter_gf(mode="single")
+        if filter:
+            supergraph.filter_gf(mode="single")
 
         # Group by module.
         supergraph.group_gf(group_by="module")
@@ -132,68 +141,49 @@ class CallFlow:
         # Store the graphframe.
         supergraph.write_gf("entire")
 
+        # Single data auxiliary view processing.
         supergraph.single_auxiliary(
             dataset=dataset, binCount=20, process=True  # _name,
         )
 
-    def _process_ensemble(self, datasets):
+        # We return the single supergraph, so that we can generalize in self._process_single()
+        return supergraph
+
+    def _process_ensemble(self, datasets, reprocess_single=True, reprocess_ensemble=True):
         """
         Ensemble processing of datasets.
         """
         # Before we process the ensemble, we perform single processing on all datasets.
-        single_supergraphs = {}
-        for idx, dataset_name in enumerate(datasets):
-            # Create an instance of dataset.
-            single_supergraphs[dataset_name] = SuperGraph(
-                props=self.props, tag=dataset_name, mode="process"
-            )
-            LOGGER.info("#########################################")
-            LOGGER.info(f"Run: {dataset_name}")
-            LOGGER.info("#########################################")
+        # Process if reprocess_single is true, or if the variable self.supergraphs is empty dict.
+        if reprocess_single or len(self.supergraphs.keys()) == 0:
+            single_supergraphs = { dataset: self._process_single(dataset, filter=False) for dataset in datasets }
+        else:
+            single_supergraphs = { dataset: self.supergraphs[dataset] for dataset in datasets }
 
-            # Process each graphframe.
-            single_supergraphs[dataset_name].process_gf()
-
-            single_supergraphs[dataset_name].group_gf(group_by="module")
-
-            # Write the entire graphframe into .callflow.
-            single_supergraphs[dataset_name].write_gf("entire")
-
-            # Single auxiliary processing.
-            single_supergraphs[dataset_name].single_auxiliary(
-                dataset=dataset_name, binCount=20, process=True,
+        if reprocess_ensemble:
+            # Create a supergraph class for ensemble case.
+            ensemble_supergraph = EnsembleGraph(
+                self.props, "ensemble", mode="process", supergraphs=single_supergraphs
             )
 
-        # Create a supergraph class for ensemble case.
-        ensemble_supergraph = EnsembleGraph(
-            self.props, "ensemble", mode="process", supergraphs=single_supergraphs
-        )
+            # Filter the ensemble graphframe.
+            ensemble_supergraph.filter_gf(mode="ensemble")
 
-        # Write the graphframe to file.
-        # ensemble_supergraph.write_gf("entire")
+            # Group by module.
+            ensemble_supergraph.group_gf(group_by="module")
 
-        # Filter the ensemble graphframe.
-        ensemble_supergraph.filter_gf(mode="ensemble")
+            # Write the grouped graphframe.
+            # TODO: remove the parameter, "entire", "group".
+            ensemble_supergraph.write_gf("group")
 
-        # Write the filtered graphframe.
-        # ensemble_supergraph.write_gf("filter")
-
-        # Group by module.
-        ensemble_supergraph.group_gf(group_by="module")
-
-        # Write the grouped graphframe.
-        ensemble_supergraph.write_gf("group")
-
-        # Ensemble auxiliary processing.
-        ensemble_supergraph.ensemble_auxiliary(
-            # MPIBinCount=self.currentMPIBinCount,
-            # RunBinCount=self.currentRunBinCount,
-            datasets=self.props["dataset_names"],
-            MPIBinCount=20,
-            RunBinCount=20,
-            process=True,
-            write=True,
-        )
+            # Ensemble auxiliary processing.
+            ensemble_supergraph.ensemble_auxiliary(
+                datasets=datasets,
+                MPIBinCount=20,
+                RunBinCount=20,
+                process=True,
+                write=True,
+            )
 
     def _read_single(self):
         """
@@ -308,7 +298,7 @@ class CallFlow:
             )
             return single_supergraph.nxg
 
-        elif operation_name == "mini-histogram":
+        elif operation_name == "miniHistogram":
             minihistogram = MiniHistogram(state)
             return minihistogram.result
 
@@ -320,14 +310,37 @@ class CallFlow:
         """
         Handles all the socket requests connected to Single CallFlow.
         """
+
+        _OPERATIONS = [
+            "init",
+            "reset",
+            "auxiliary",
+            "cct",
+            "supergraph",
+            "projection",
+            "hierarchy",
+            "run-information",
+            "similarity",
+            "compare"
+        ]
+        assert "name" in operation
+        assert operation["name"] in _OPERATIONS
+
+        LOGGER.info(f"[Ensemble Mode] {operation}")
         operation_name = operation["name"]
-        datasets = self.props["dataset_names"]
+
+        # Determine if we need to re-process or not.
+        # Reprocessing happens when the user requests a different set of graphs
+        # from `self.datasets_in_vis`
+        if "datasets" in operation and set(operation["datasets"]) != set(self.datasets_in_vis):
+            self.datasets_in_vis = operation["datasets"]
+            self.process(reprocess_single=False, reprocess_ensemble=True)
 
         if operation_name == "init":
             return self.props
 
         elif operation_name == "cct":
-            result = CallFlowNodeLinkLayout(
+            result = NodeLinkLayout(
                 graphframe=self.supergraphs["ensemble"].gf,
                 filter_metric=operation["filter_metric"],
                 filter_count=operation["functionsInCCT"],
@@ -350,16 +363,6 @@ class CallFlow:
             else:
                 split_callee_module = ""
 
-            if len(operation["datasets"]) != len(self.props["dataset_names"]):
-                ensemble_supergraph.ensemble_auxiliary(
-                    # MPIBinCount=self.currentMPIBinCount,
-                    # RunBinCount=self.currentRunBinCount,
-                    datasets=operation["datasets"],
-                    MPIBinCount=20,
-                    RunBinCount=20,
-                    process=True,
-                    write=True,
-                )
             ensemble_super_graph = SankeyLayout(
                 supergraph=self.supergraphs["ensemble"], path="group_path"
             )
