@@ -50,7 +50,8 @@ export default {
 		message: "Summary Graph View",
 		debug: false,
 		sankeyWidth: 0,
-		sankeyHeight: 0
+		sankeyHeight: 0,
+		all_data: {}
 	}),
 
 	mounted() {
@@ -100,7 +101,7 @@ export default {
 
 	methods: {
 		init() {
-			this.width = 5 * this.$store.viewWidth;
+			this.width = 3 * this.$store.viewWidth;
 			this.height = 1 * this.$store.viewHeight;
 
 			this.sankeySVG = d3.select("#" + this.id)
@@ -122,7 +123,6 @@ export default {
 					groupBy: "module"
 				});
 			}
-
 
 			let inner = this.sankeySVG.select("#container");
 
@@ -158,7 +158,6 @@ export default {
 		},
 
 		render(data) {
-
 			this.sankeyWidth = 0.7 * this.$store.viewWidth;
 			this.sankeyHeight = 0.9 * this.$store.viewHeight - this.margin.top - this.margin.bottom;
 
@@ -183,18 +182,24 @@ export default {
 					console.debug("[Ensemble SuperGraph] Weight: ", weight);
 				}
 			}
-			this.initSankey(this.data);
+			this.all_data = [{ "tag": "run-1", "data": this.data }, { "tag": "run-2", "data": this.data }]
+
+			this.initSankey(this.all_data);
+
 
 			let postProcess = this.postProcess(this.data.nodes, this.data.links);
 			this.data.nodes = postProcess["nodes"];
 			this.data.links = postProcess["links"];
-			this.initSankey(this.data);
+
+
+			this.initSankey(this.all_data);
 
 			this.$store.graph = this.data;
-			this.$refs.EnsembleColorMap.init(this.$store.runtimeColor);
+			// this.$refs.EnsembleColorMap.init(this.$store.runtimeColor);
 			if (this.$store.selectedMode == "Ensemble") {
 				this.$refs.EnsembleColorMap.init(this.$store.distributionColor);
 			}
+			console.log(this.$refs.EnsembleNodes)
 			this.$refs.EnsembleNodes.init(this.$store.graph, this.view);
 			this.$refs.EnsembleEdges.init(this.$store.graph, this.view);
 			this.$refs.MiniHistograms.init(this.$store.graph, this.view);
@@ -237,25 +242,30 @@ export default {
 			this.$refs.MiniHistograms.init(this.graph, this.view);
 		},
 
-		//Sankey computation
-		initSankey() {
-			this.sankey = Sankey()
-				.nodeWidth(this.nodeWidth)
-				.nodePadding(this.ySpacing)
-				.size([this.sankeyWidth, this.sankeyHeight])
-				.levelSpacing(this.levelSpacing)
-				.maxLevel(this.data.maxLevel)
-				.datasets(this.$store.runNames)
-				.setMinNodeScale(this.nodeScale)
-				.dataset("ensemble")
-				.targetDataset(this.$store.selectedTargetDataset)
-				.store(this.$store);
 
-			let path = this.sankey.link();
+		initSankey(datas) {
+			for (let tag in datas) {
+				let sankey = Sankey()
+					.nodeWidth(this.nodeWidth)
+					.nodePadding(this.ySpacing)
+					.size([this.sankeyWidth, this.sankeyHeight])
+					.levelSpacing(this.levelSpacing)
+					.maxLevel(this.data.maxLevel)
+					.datasets(this.$store.runNames)
+					.setMinNodeScale(this.nodeScale)
+					.dataset("ensemble")
+					.targetDataset(this.$store.selectedTargetDataset)
+					.store(this.$store);
 
-			this.sankey.nodes(this.data.nodes)
-				.links(this.data.links)
-				.layout(32);
+				let data = datas[tag];
+				console.log(data)
+				sankey.nodes(data.data.nodes)
+					.links(data.data.links)
+					.layout(32);
+
+				sankey.link();
+			}
+
 		},
 
 		// Add intermediate nodes.
@@ -324,7 +334,6 @@ export default {
 						tempNode[targetDataset] = target_node[targetDataset];
 
 						if (firstNode) {
-							console.log(tempNode);
 							nodes.push(tempNode);
 							firstNode = false;
 						}

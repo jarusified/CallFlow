@@ -7,10 +7,11 @@
  */
 -->
 <svg :id="id">
-    <g id="container">
+    <g id="container" v-for="(idx, data) in all_data" :key="data.tag">
+    <!-- <g id="container"> -->
         <EnsembleEdges ref="EnsembleEdges" />
         <EnsembleNodes ref="EnsembleNodes" />
         <MiniHistograms ref="MiniHistograms" />
-        <EnsembleColorMap ref="EnsembleColorMap" />
     </g>
+    <EnsembleColorMap ref="EnsembleColorMap" />
 </svg>
