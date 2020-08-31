@@ -31,7 +31,6 @@ export default {
 		 */
 		init(callsite, q, targetq, xScale, showTarget) {
 			if (this.debug) {
-				console.log("Ensemble q: ", q);
 				console.log("Target q: ", targetq);
 			}
 			this.q = q;

@@ -65,14 +65,14 @@ export default {
 		/**
 		 * Event handler when a user selects a supernode.
 		 */
-		EventHandler.$on("select_module", (data) => {
+		EventHandler.$on("select-module", (data) => {
 			self.selectModule(data["module"]);
 		});
 
 		/**
 		 * Event handler for sorting the callsites by a metric.
 		 */
-		EventHandler.$on("callsite_information_sort", (data) => {
+		EventHandler.$on("callsite-information-sort", (data) => {
 			let attribute = self.$store.selectedRuntimeSortBy;
 			self.callsites = self.sortByAttribute(self.callsites, attribute);
 		});
@@ -91,7 +91,9 @@ export default {
 				document.getElementById(this.id).style.maxHeight = this.height + "px";
 				this.informationHeight = 50;
 				this.firstRender = false;
+				this.setStates();
 			}
+			console.log("inside callsite information init")
 			this.visualize();
 		},
 
@@ -100,8 +102,7 @@ export default {
 		 * Three things are performed.
 		 */
 		visualize() {
-			this.setStates();
-			this.borderColorByMetric();
+			// this.borderColorByMetric();
 			this.boxplotByMetric();
 		},
 
@@ -151,6 +152,7 @@ export default {
 		 */
 		boxplotByMetric() {
 			// TODO: Generalize this for all the possible metrics.
+			console.log(this.callsites)
 			for (let callsite in this.callsites) {
 				let data = this.callsites[callsite][this.selectedMetric];
 				this.mean[callsite] = utils.formatRuntimeWithoutUnits(data["mean_time"]);
@@ -305,9 +307,7 @@ export default {
 		 * 
 		 */
 		clear() {
-			for (let callsite in this.callsites) {
-				EventHandler.$emit("hide-mpi-boxplot", this.callsites[callsite]);
-			}
+			EventHandler.$emit("hide-mpi-boxplot");
 		},
 
 		/**
@@ -373,6 +373,8 @@ export default {
 		 */
 		selectModule(module) {
 			let callsites_in_module = this.$store.moduleCallsiteMap[this.$store.selectedTargetDataset][module];
+
+			console.log("debug: select module's callsites: ", callsites_in_module)
 
 			this.numberOfCallsites = Object.keys(callsites_in_module).length;
 

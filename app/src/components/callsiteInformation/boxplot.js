@@ -67,16 +67,17 @@ export default {
 			self.init();
 		});
 
-		EventHandler.$on("show_mpi_boxplot", (data) => {
+		EventHandler.$on("show-mpi-boxplot", (data) => {
 			let thisid = self.id.split("-")[1] + "-" + self.id.split("-")[2];
+			console.log(thisid, data.id)
 			if (data.id == thisid) {
-				console.log("Showing boxpliot of ", data);
+				console.debug("Showing boxpliot of ", data);
 				self.init(data);
 			}
 		});
 
-		EventHandler.$on("hide_mpi_boxplot", (data) => {
-			self.clear(data);
+		EventHandler.$on("hide-mpi-boxplot", (data) => {
+			self.clear();
 		});
 	},
 

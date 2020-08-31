@@ -136,17 +136,19 @@ export default {
 		},
 
 		debugData(data) {
-			console.debug("Data :", data);
-			for (let i = 0; i < data.nodes.length; i += 1) {
-				console.debug("Node name: ", data.nodes[i].id);
-				console.debug("Time (inc): ", data.nodes[i]["time (inc)"]);
-				console.debug("Time: ", data.nodes[i]["time"]);
-			}
-
-			for (let i = 0; i < data.links.length; i += 1) {
-				console.debug("Source: ", data.links[i].source);
-				console.debug("Target: ", data.links[i].target);
-				console.debug("Weight: ", data.links[i].weight);
+			if(this.debug) {
+				console.debug("Data :", data);
+				for (let i = 0; i < data.nodes.length; i += 1) {
+					console.debug("Node name: ", data.nodes[i].id);
+					console.debug("Time (inc): ", data.nodes[i]["time (inc)"]);
+					console.debug("Time: ", data.nodes[i]["time"]);
+				}
+	
+				for (let i = 0; i < data.links.length; i += 1) {
+					console.debug("Source: ", data.links[i].source);
+					console.debug("Target: ", data.links[i].target);
+					console.debug("Weight: ", data.links[i].weight);
+				}	
 			}
 		},
 
@@ -324,7 +326,6 @@ export default {
 						tempNode[targetDataset] = target_node[targetDataset];
 
 						if (firstNode) {
-							console.log(tempNode);
 							nodes.push(tempNode);
 							firstNode = false;
 						}
