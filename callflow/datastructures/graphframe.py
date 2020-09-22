@@ -144,6 +144,9 @@ class GraphFrame(ht.GraphFrame):
         elif profile_format == "lists":
             gf = ht.GraphFrame.from_lists(config["data_path"])
 
+        elif profile_format == "cprofile":
+            gf = ht.GraphFrame.from_cprofile(data_path)
+
         return GraphFrame.from_hatchet(gf)
 
     # --------------------------------------------------------------------------
@@ -176,6 +179,7 @@ class GraphFrame(ht.GraphFrame):
 
             try:
                 while node:
+                    print(node)
 
                     # node_dict = node_dict_from_frame(node.frame)
                     # node_name = node_dict["name"]

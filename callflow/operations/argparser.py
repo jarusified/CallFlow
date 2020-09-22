@@ -298,6 +298,34 @@ class ArgParser:
         return scheme
 
     @staticmethod
+    def _scheme_dataset_map_cprofile(data_path: str):
+        """
+        Derive the scheme for dataset_map for cprofile format.
+        """
+        scheme = {}
+        scheme["runs"] = []
+        scheme["paths"] = {}
+        scheme["format"] = {}
+        list_pstats_paths = [
+            f.path
+            for f in os.scandir(data_path)
+            if os.path.splitext(f.path)[1] == ".pstats"
+        ]
+
+        print(list_pstats_paths)
+
+        for idx, subfolder_path in enumerate(list_pstats_paths):
+            name = subfolder_path.split("/")[-1]
+            if name != "callflow.config.json":
+                filename = name.split(".")[0]
+                scheme["runs"].append(filename)
+                scheme["paths"][filename] = subfolder_path
+                scheme["format"][filename] = "cprofile"
+
+        return scheme
+
+
+    @staticmethod
     def _read_directory(args):
         scheme = {}
 
@@ -322,6 +350,7 @@ class ArgParser:
             "hpctoolkit": ArgParser._scheme_dataset_map_hpctoolkit,
             "caliper": ArgParser._scheme_dataset_map_caliper,
             "caliper_json": ArgParser._scheme_dataset_map_caliper_json,
+            "cprofile": ArgParser._scheme_dataset_map_cprofile,
             "default": ArgParser._scheme_dataset_map_default,
         }
         scheme["properties"] = []
