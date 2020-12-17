@@ -8,12 +8,11 @@
 import Vue from "vue";
 import * as Vuex from "vuex";
 import Router from "vue-router";
-import Vuetify from "vuetify";
 import BootstrapVue from "bootstrap-vue";
 import VueMaterial from "vue-material";
+import vuetify from "@/plugins/vuetify"; // path to vuetify export
 import "vue-material/dist/vue-material.min.css";
 import "vue-material/dist/theme/default.css";
-import "vuetify/dist/vuetify.min.css";
 import "material-design-icons-iconfont/dist/material-design-icons.css";
 
 import App from "./components/App";
@@ -43,7 +42,6 @@ const router = new Router({
 Vue.config.productionTip = false;
 Vue.use(BootstrapVue);
 Vue.use(Router);
-Vue.use(Vuetify);
 Vue.use(VueMaterial);
 
 new Vue({
@@ -52,7 +50,8 @@ new Vue({
 	el: "#app",
 	router,
 	components: { App },
-	template: "<App/>"
+	template: "<App/>",
+	vuetify
 });
 Vue.config.devtools = true;
 
