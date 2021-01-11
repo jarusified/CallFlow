@@ -39,6 +39,7 @@ class CallFlow:
         ndatasets = len(self.config["runs"])
         assert ndatasets > 0
         self.ensemble = ndatasets > 1
+        self.supergraphs = {}
 
     # --------------------------------------------------------------------------
     # Processing methods.
@@ -105,7 +106,6 @@ class CallFlow:
 
         # Adds basic information to config.
         # Config is later return to client app on "init" request.
-        self.config["runtime_props"] = self._runtime_props(self.supergraphs)
 
     def _process_single(self, dataset):
         """
@@ -154,7 +154,7 @@ class CallFlow:
         Ensemble processing of datasets.
         """
         # Before we process the ensemble, we perform single processing on all datasets.
-        single_supergraphs = {}
+        # sankey_nxg = {}
         for dataset in datasets:
             dataset_tag = dataset["name"]
             # Create an instance of dataset.
@@ -185,7 +185,7 @@ class CallFlow:
         with self.timer.phase("Create Ensemble Supergraph"):
             # Create a supergraph class for ensemble case.
             ensemble_supergraph = EnsembleGraph(
-                self.config, "ensemble", mode="process", supergraphs=single_supergraphs
+                self.config, "ensemble", mode="process", supergraphs=self.supergraphs
             )
 
         with self.timer.phase("Filter ensemble GraphFrame"):
@@ -196,18 +196,29 @@ class CallFlow:
         #     # Group by module.
         #     ensemble_supergraph.group_gf(group_by=self.config["group_by"])
 
-        # with self.timer.phase("Write ensemble GraphFrame"):
-        #     # Write the grouped graphframe.
-        #     ensemble_supergraph.write_gf("group")
+        # with self.timer.phase("Ensemble sankey calculation"):
+        #     self.request_ensemble({
+        #         "name": "supergraph",
+        #         "datasets": datasets,
+        #         "groupBy": "module",
+        #     })
+
+        with self.timer.phase("Write ensemble GraphFrame"):
+            # Write the grouped graphframe.
+            ensemble_supergraph.write_gf("group")
+
+        self.config["runtime_props"] = self._runtime_props(self.supergraphs)
 
         with self.timer.phase("Ensemble Auxiliary"):
             # Ensemble auxiliary processing.
             ensemble_supergraph.ensemble_auxiliary(
                 datasets=self.config["parameter_props"]["runs"],
+                props=self.config,
                 MPIBinCount=20,
                 RunBinCount=20,
                 process=True,
                 write=True,
+                # nxg=nxg
             )
         print(self.timer)
 
@@ -264,18 +275,18 @@ class CallFlow:
             props["maxExcTime"][tag] = supergraphs[tag].gf.df["time"].max()
             props["minIncTime"][tag] = supergraphs[tag].gf.df["time (inc)"].min()
             props["minExcTime"][tag] = supergraphs[tag].gf.df["time"].min()
-            props["numOfRanks"][tag] = len(supergraphs[tag].gf.df["rank"].unique())
+            # props["numOfRanks"][tag] = len(supergraphs[tag].gf.df["rank"].unique())
             maxExcTime = max(props["maxExcTime"][tag], maxExcTime)
             maxIncTime = max(props["maxIncTime"][tag], maxIncTime)
             minExcTime = min(props["minExcTime"][tag], minExcTime)
             minIncTime = min(props["minIncTime"][tag], minIncTime)
-            maxNumOfRanks = max(props["numOfRanks"][tag], maxNumOfRanks)
+            # maxNumOfRanks = max(props["numOfRanks"][tag], maxNumOfRanks)
 
         props["maxIncTime"]["ensemble"] = maxIncTime
         props["maxExcTime"]["ensemble"] = maxExcTime
         props["minIncTime"]["ensemble"] = minIncTime
         props["minExcTime"]["ensemble"] = minExcTime
-        props["numOfRanks"]["ensemble"] = maxNumOfRanks
+        # props["numOfRanks"]["ensemble"] = maxNumOfRanks
 
         return props
 
@@ -312,12 +323,7 @@ class CallFlow:
         operation_name = operation["name"]
 
         if operation_name == "init":
-            return self.config
-
-        elif operation_name == "supergraph_data":
-            if len(operation["datasets"]) > 1:
-                return self.supergraphs["ensemble"].auxiliary_data
-            return self.supergraphs[operation["datasets"][0]].auxiliary_data
+            return self.supergraphs["ensemble"].auxiliary_data
 
     def request_single(self, operation):
         """
@@ -333,7 +339,7 @@ class CallFlow:
 
         operation_name = operation["name"]
 
-        LOGGER.info(f"[Single Mode] {operation}")
+        LOGGER.info(f"[Supergraph] {operation}")
 
         if operation_name == "supergraph":
             if "reveal_callsites" in operation:
